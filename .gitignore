@@ -1,0 +1,9 @@
+# ambiente Python
+venv/
+
+# segreti(password, chiavi API)
+.env
+
+# file generati da Python
+__pycache__/
+*.pyc
