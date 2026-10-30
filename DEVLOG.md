@@ -40,3 +40,16 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 **Errore e correzione:** le prime installazioni erano finite fuori dall'ambiente virtuale; dopo aver verificato il prefisso di Python con `sys.prefix` i pacchetti sono stati reinstallati nel venv.
 
 **Prossimo passo:** prima tabella (`reparto`) come classe SQLAlchemy 2.0 e creazione nel database.
+
+## 2026-10-30 – Primo modello `Reparto` e creazione della tabella
+
+**Decisione:** i modelli stanno in `app/models.py` come classi SQLAlchemy 2.0 (`Mapped` + `mapped_column`); `engine` e `Base` stanno in `app/database.py`; le tabelle si creano con lo script `crea_tabelle.py` (`Base.metadata.create_all(engine)`).
+**Motivo:** una classe per tabella, con tipo e obbligatorietà dichiarati insieme (`Mapped[str]` obbligatorio, `Mapped[str | None]` facoltativo). `engine` e `Base` in un file separato evitano import circolari tra modelli e script. `create_all` basta finché le tabelle sono nuove.
+**Dettagli:**
+- `reparto`: `id` chiave primaria, `nome` `VARCHAR(100)` obbligatorio e unico, `descrizione` `TEXT` facoltativa. SQL generato: `CREATE TABLE reparto (id SERIAL NOT NULL, nome VARCHAR(100) NOT NULL, descrizione TEXT, PRIMARY KEY (id), UNIQUE (nome))`.
+- In `crea_tabelle.py` l'import `from app import models` è necessario: senza, le classi non si registrano e `create_all` non crea nulla, senza errori.
+- `echo=True` resta attivo in sviluppo per leggere l'SQL.
+**Limite noto:** `create_all` crea solo le tabelle mancanti e non modifica quelle esistenti; per cambiare una tabella già creata serviranno le migrazioni.
+**Alternative scartate:** per ora nessuna strumentazione di migrazioni (non serve finché le tabelle sono nuove).
+
+**Prossimo passo:** tabella `macchinario`, con la prima chiave esterna (`reparto_id`).
