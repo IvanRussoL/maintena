@@ -16,7 +16,7 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 
 ## 2026-10-28 – PostgreSQL 18 installato in nativo su Windows
 
-**Decisione:** PostgreSQL 18.1 con l'installer ufficiale, database `maintena`.
+**Decisione:** PostgreSQL 18 con l'installer ufficiale, database `maintena`.
 **Motivo:** è la via più semplice per iniziare, senza strati aggiuntivi.
 **Alternative scartate:** WSL2 e Docker (Docker arriverà con la fase di produzione).
 
@@ -30,3 +30,13 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 **Errore e correzione:** al primo tentativo `git init` e il venv erano stati creati nella cartella sopra, per un `cd` saltato. Dopo aver verificato che il venv fosse appena creato, sono stati eliminati e ricreati nel posto giusto.
 
 **Prossimo passo:** definire le cinque tabelle con SQLAlchemy 2.0 (installando anche il driver PostgreSQL) e configurare la connessione con un file `.env` (escluso da Git) e un `.env.example` con valori finti.
+
+## 2026-10-30 – Driver psycopg 3 e configurazione della connessione
+
+**Decisione:** SQLAlchemy 2.x con il driver `psycopg` (versione 3, pacchetto `psycopg[binary]`); la stringa di connessione sta in `DATABASE_URL`, letta da un file `.env` con `python-dotenv`. Il repository contiene solo `.env.example` con valori finti; `.env` è escluso da Git.
+**Motivo:** psycopg 3 è la versione attuale del driver; la variante `[binary]` è precompilata e non richiede un compilatore su Windows. Tenere la stringa in `.env` evita password nel codice. Formato dell'URL: `postgresql+psycopg://utente:password@host:porta/database`.
+**Alternative scartate:** psycopg2 (versione precedente del driver).
+**Verifica:** una query `SELECT version()` dal venv restituisce PostgreSQL 18.6. Con `echo=True` si vede l'SQL eseguito, compresi `BEGIN`, `SELECT version()` e `ROLLBACK` (la transazione si chiude senza `commit()` perché non scriviamo nulla). Le dipendenze sono fissate in `requirements.txt`.
+**Errore e correzione:** le prime installazioni erano finite fuori dall'ambiente virtuale; dopo aver verificato il prefisso di Python con `sys.prefix` i pacchetti sono stati reinstallati nel venv.
+
+**Prossimo passo:** prima tabella (`reparto`) come classe SQLAlchemy 2.0 e creazione nel database.
