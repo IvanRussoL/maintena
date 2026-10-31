@@ -5,5 +5,4 @@ class RepartoLettura(BaseModel):
 
     id: int
     nome: str
-
-    
+    descrizione: str | None
