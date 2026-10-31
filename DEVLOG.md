@@ -66,3 +66,16 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 **Nota:** `create_all` ha creato solo la tabella nuova e ha lasciato intatta `reparto`: non modifica le tabelle esistenti, per cambiarle serviranno le migrazioni.
 
 **Prossimo passo:** da definire (altre tabelle del gestionale, poi la prima API).
+
+## 2026-10-31 – Modello Tecnico e cancellazione logica
+
+**Decisione:** la classe `Tecnico` in `app/models.py` ha `codice_dipendente` (unico, `String(50)`), `nome` e `cognome` (`String(100)`), `specializzazione` (`String(20)`, con `CheckConstraint` `ck_tecnico_specializzazione` sui valori `meccanica`, `elettrica`, `idraulica`, `elettronica`) e `attivo` (`Mapped[bool]` con `server_default="true"`).
+**Motivo:**
+- `attivo` al posto della cancellazione: un tecnico ha ordini di lavoro nello storico, che non devono perdersi né impedire l'operazione. Si disattiva e non lo si propone più per nuovi interventi; gli elenchi dovranno filtrare `attivo = true`.
+- `Mapped[bool]` basta a SQLAlchemy per creare una colonna `BOOLEAN`; il predefinito sta nella tabella (`server_default`), come per `stato` di `macchinario`.
+- `String` + `CHECK` per `specializzazione`, come per gli altri elenchi fissi: più facile da modificare di un `Enum`.
+**Errori e correzioni:** il `CHECK` era stato scritto su `attivo` (inutile su una colonna già booleana, e confrontava una stringa invece di un booleano): spostato su `specializzazione`. Un refuso nel nome del vincolo e le lunghezze di `cognome` e `specializzazione` sono stati corretti prima di lanciare `create_all`, che non modifica le tabelle già create.
+**Alternative scartate:** cancellare i tecnici (perderebbe lo storico o sarebbe bloccato dalla chiave esterna); `Enum` per `specializzazione`.
+**Da decidere:** se `specializzazione` debba essere obbligatoria (come ora nel codice) o facoltativa (come nello schema iniziale).
+
+**Prossimo passo:** tabella `guasto`, con chiave esterna verso `macchinario` e i campi data.
