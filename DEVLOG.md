@@ -119,3 +119,16 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 **Alternative scartate:** Flask (già noto, ma senza validazione e documentazione automatiche); aggiungere subito `GET /reparti` (richiede la sessione del database e uno schema, due concetti nuovi in un passo solo).
 
 **Prossimo passo:** `GET /reparti`, che legge i reparti dal database.
+
+## 2026-10-31 – Prima rotta sui dati: GET /reparti
+
+**Decisione:** `GET /reparti` restituisce l'elenco dei reparti. La sessione del database si ottiene con `get_db` (in `app/database.py`, un generatore con `yield` che chiude la sessione nel `finally`), iniettata nella rotta con `Depends(get_db)`. La forma della risposta è uno schema Pydantic, `RepartoLettura` (in `app/schemas.py`, con `from_attributes=True`), indicato in `response_model=list[RepartoLettura]`.
+**Motivo:**
+- Una sessione per richiesta, chiusa sempre (anche in caso di errore), evita connessioni lasciate aperte e sessioni condivise tra richieste.
+- `Depends` toglie dalla rotta il codice di apertura e chiusura, e rende la sessione sostituibile nei test.
+- Modello SQLAlchemy e schema Pydantic restano separati: il primo descrive la tabella, il secondo i dati che escono dall'API, così la risposta non espone per forza tutte le colonne.
+- Lo schema deve avere gli stessi campi facoltativi del modello (`descrizione` può essere vuota), altrimenti la validazione della risposta fallisce.
+**Alternative scartate:** una sessione globale unica; aprire e chiudere la sessione a mano in ogni rotta (ripetizione e rischio di dimenticare `close`); restituire direttamente gli oggetti SQLAlchemy senza schema.
+**Limite noto:** per ora la rotta esegue la query da sola; quando nasceranno repository e servizi la query si sposterà nello strato repository. Con la tabella vuota la risposta è `[]`.
+
+**Prossimo passo:** `POST /reparti`, per creare reparti e provare la lettura con dati veri.
