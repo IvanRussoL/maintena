@@ -1,4 +1,5 @@
-from sqlalchemy import String, Text, ForeignKey, CheckConstraint
+from datetime import datetime
+from sqlalchemy import String, Text, ForeignKey, CheckConstraint, DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
 
@@ -37,3 +38,20 @@ class Tecnico(Base):
     cognome: Mapped[str] = mapped_column(String(100))
     specializzazione: Mapped[str | None] = mapped_column(String(20))
     attivo: Mapped[bool] = mapped_column(server_default="true")
+
+
+class Guasto(Base):
+    __tablename__ = "guasto"
+    __table_args__ = (
+        CheckConstraint("priorita IN ('bassa', 'media', 'alta', 'critica')", name="ck_guasto_priorita"),
+        CheckConstraint("stato IN ('aperto', 'in_lavorazione', 'risolto', 'annullato')", name="ck_guasto_stato"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    macchinario_id: Mapped[int] = mapped_column(ForeignKey("macchinario.id", ondelete="RESTRICT"))
+    descrizione: Mapped[str] = mapped_column(Text)
+    data_segnalazione: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    priorita: Mapped[str] = mapped_column(String(20))
+    stato: Mapped[str] = mapped_column(String(20), server_default="aperto")
+    data_chiusura: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    segnalato_da: Mapped[str] = mapped_column(String(100))
