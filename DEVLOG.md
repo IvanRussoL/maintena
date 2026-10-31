@@ -109,3 +109,13 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 **Limite noto:** il database controlla le colonne una per una, non le combinazioni. Accetta, per esempio, un ordine `completato` senza `data_completamento`, un ordine `assegnato` senza tecnico o un macchinario diverso da quello del guasto. Sono regole dello strato servizi, da progettare.
 
 **Prossimo passo:** da decidere tra le regole di coerenza dei servizi e la prima API FastAPI.
+
+## 2026-10-31 – Prima app FastAPI
+
+**Decisione:** `app/main.py` crea l'applicazione con `FastAPI(title="Maintena")` ed espone una sola rotta, `GET /`, che restituisce `{"applicazione": "Maintena", "stato": "attiva"}`. FastAPI è installato con `pip install "fastapi[standard]"` (include Uvicorn e Pydantic) e si avvia in sviluppo con `fastapi dev app/main.py`; la documentazione interattiva è su `/docs`.
+**Motivo:**
+- Partire da una rotta minima che non tocca il database permette di verificare l'installazione e di capire il ciclo richiesta, funzione, risposta JSON prima di aggiungere sessione e schemi.
+- FastAPI restituisce JSON e genera da solo la documentazione `/docs`, utile per provare le rotte senza un client.
+**Alternative scartate:** Flask (già noto, ma senza validazione e documentazione automatiche); aggiungere subito `GET /reparti` (richiede la sessione del database e uno schema, due concetti nuovi in un passo solo).
+
+**Prossimo passo:** `GET /reparti`, che legge i reparti dal database.
