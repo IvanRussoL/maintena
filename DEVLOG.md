@@ -95,3 +95,17 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 **Decisione `segnalato_da`:** resta obbligatorio, anche se lo schema iniziale non lo indicava come tale. Motivo: un guasto senza segnalante è un dato povero, e in seguito il campo diventerà il collegamento all'utente. Alternativa scartata: facoltativo (serve solo per segnalazioni anonime). Limite: `NOT NULL` non vieta il testo vuoto.
 
 **Prossimo passo:** tabella `ordine_lavoro`, con tre chiavi esterne (macchinario, guasto e tecnico facoltativi dove previsto) e le date.
+
+## 2026-10-31 – Modello OrdineLavoro e schema della fase 1 completo
+
+**Decisione:** la classe `OrdineLavoro` in `app/models.py` ha tre chiavi esterne con `ondelete="RESTRICT"`: `macchinario_id` (obbligatoria), `guasto_id` e `tecnico_id` (facoltative, `Mapped[int | None]`). `descrizione` è obbligatoria (`Text`); `stato` è una `String(20)` con predefinito `da_assegnare` e un `CheckConstraint` (`ck_ordine_lavoro_stato`: `da_assegnare`, `assegnato`, `in_corso`, `completato`, `annullato`); `data_creazione` ha `server_default=func.now()`; `data_pianificata`, `data_completamento` ed `esito` sono facoltativi. Con questa tabella lo schema della fase 1 è completo: cinque tabelle.
+**Motivo:**
+- `guasto_id` facoltativo: una manutenzione programmata non nasce da un guasto, quindi il vuoto significa "preventiva". Per questo non c'è una colonna `tipo`.
+- `tecnico_id` facoltativo: l'assegnazione avviene dopo la creazione dell'ordine; il vuoto significa "non ancora assegnato".
+- `RESTRICT` anche sulle chiavi facoltative: conserva lo storico. `SET NULL` cambierebbe in silenzio il significato di un ordine (da correttivo a preventivo) quando si cancella un guasto.
+- `data_completamento` ed `esito` si compilano a lavoro finito, come `data_chiusura` del guasto; `data_pianificata` si può decidere dopo la creazione.
+**Alternative scartate:** `SET NULL` su `guasto_id` e `tecnico_id`; una colonna `tipo` correttiva/preventiva (si ricava da `guasto_id`); `reparto_id` nell'ordine (si ricava dal macchinario).
+**Errori e correzioni:** nel `CHECK` mancava `'annullato'` (senza, un ordine non si sarebbe potuto annullare) e una riga aveva `=` al posto dei due punti dopo il nome dell'attributo; entrambi corretti prima di lanciare `create_all`.
+**Limite noto:** il database controlla le colonne una per una, non le combinazioni. Accetta, per esempio, un ordine `completato` senza `data_completamento`, un ordine `assegnato` senza tecnico o un macchinario diverso da quello del guasto. Sono regole dello strato servizi, da progettare.
+
+**Prossimo passo:** da decidere tra le regole di coerenza dei servizi e la prima API FastAPI.
