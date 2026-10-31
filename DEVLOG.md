@@ -80,3 +80,18 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 **Limite noto:** modificare una tabella già creata richiede oggi un intervento manuale sul database, oltre alla modifica del modello; con dati veri serviranno le migrazioni.
 
 **Prossimo passo:** tabella `guasto`, con chiave esterna verso `macchinario` e i campi data.
+
+## 2026-10-31 – Modello Guasto, date con fuso orario
+
+**Decisione:** la classe `Guasto` in `app/models.py` collega ogni guasto a un macchinario con `macchinario_id` (`ForeignKey("macchinario.id", ondelete="RESTRICT")`). `priorita` e `stato` sono `String(20)` con due `CheckConstraint` nominati (`ck_guasto_priorita`: `bassa`, `media`, `alta`, `critica`; `ck_guasto_stato`: `aperto`, `in_lavorazione`, `risolto`, `annullato`); `stato` ha predefinito `aperto` (`server_default`). Le date sono `DateTime(timezone=True)`: `data_segnalazione` ha `server_default=func.now()`, `data_chiusura` è facoltativa. `segnalato_da` è un testo provvisorio (`String(100)`), da rivedere quando arriveranno gli utenti.
+**Motivo:**
+- `RESTRICT`: un macchinario con guasti non si cancella, per non perdere lo storico (si usa lo stato `dismesso`).
+- `timezone=True`: la colonna conserva un istante preciso, senza ambiguità di fuso o ora legale.
+- `func.now()` come `server_default`: la data di segnalazione la mette il database, anche per chi inserisce con SQL a mano.
+- Lo stato è salvato e non calcolato dagli ordini: "risolto" è una decisione di una persona. La coerenza con gli ordini aperti sarà una regola dello strato servizi.
+- `data_chiusura` facoltativa: un guasto aperto non ha ancora una chiusura.
+**Alternative scartate:** `Enum` per `priorita` e `stato` (più difficile da modificare); data senza fuso orario; `ondelete="CASCADE"` (cancellerebbe lo storico dei guasti).
+**Errori e correzioni:** valori e virgola finale nei `CHECK`, `Mapped[DateTime]` al posto di `Mapped[datetime]` (con import mancante), `server_default=func` al posto di `func.now()`, `data_chiusura` e `descrizione` con obbligatorietà e tipo sbagliati: tutti corretti prima di lanciare `create_all`.
+**Decisione `segnalato_da`:** resta obbligatorio, anche se lo schema iniziale non lo indicava come tale. Motivo: un guasto senza segnalante è un dato povero, e in seguito il campo diventerà il collegamento all'utente. Alternativa scartata: facoltativo (serve solo per segnalazioni anonime). Limite: `NOT NULL` non vieta il testo vuoto.
+
+**Prossimo passo:** tabella `ordine_lavoro`, con tre chiavi esterne (macchinario, guasto e tecnico facoltativi dove previsto) e le date.
