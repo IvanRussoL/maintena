@@ -53,3 +53,16 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 **Alternative scartate:** per ora nessuna strumentazione di migrazioni (non serve finché le tabelle sono nuove).
 
 **Prossimo passo:** tabella `macchinario`, con la prima chiave esterna (`reparto_id`).
+
+## 2026-10-30 – Modello Macchinario e prima chiave esterna
+
+**Decisione:** la classe `Macchinario` in `app/models.py` collega ogni macchinario a un reparto con `reparto_id` (`ForeignKey("reparto.id", ondelete="RESTRICT")`); `stato` è una `String(20)` con valore predefinito `attivo` impostato dal database (`server_default`) e un `CheckConstraint` (`ck_macchinario_stato`) che ammette solo `attivo`, `fermo`, `dismesso`.
+**Motivo:**
+- `RESTRICT`: un reparto che ha macchinari non può essere cancellato per errore.
+- `String` + `CHECK`: elenco di valori fisso, ma più facile da cambiare di un tipo `Enum` del database (basta modificare la condizione).
+- `server_default`: il valore predefinito vale per chiunque scriva nella tabella, non solo per questo codice.
+- `modello` facoltativo (`Mapped[str | None]`): servirà per collegare i manuali tecnici, ma non tutti i macchinari lo avranno.
+**Alternative scartate:** `ondelete="CASCADE"` (cancellerebbe anche macchinari e, in futuro, guasti e ordini); `SET NULL` (non applicabile: `reparto_id` è obbligatorio); `Enum` per `stato`.
+**Nota:** `create_all` ha creato solo la tabella nuova e ha lasciato intatta `reparto`: non modifica le tabelle esistenti, per cambiarle serviranno le migrazioni.
+
+**Prossimo passo:** da definire (altre tabelle del gestionale, poi la prima API).
