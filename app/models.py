@@ -35,5 +35,5 @@ class Tecnico(Base):
     codice_dipendente: Mapped[str] = mapped_column(String(50), unique=True)
     nome: Mapped[str] = mapped_column(String(100))
     cognome: Mapped[str] = mapped_column(String(100))
-    specializzazione: Mapped[str] = mapped_column(String(20))
+    specializzazione: Mapped[str | None] = mapped_column(String(20))
     attivo: Mapped[bool] = mapped_column(server_default="true")
