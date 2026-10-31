@@ -55,3 +55,20 @@ class Guasto(Base):
     stato: Mapped[str] = mapped_column(String(20), server_default="aperto")
     data_chiusura: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     segnalato_da: Mapped[str] = mapped_column(String(100))
+
+class OrdineLavoro(Base):
+    __tablename__ = "ordine_lavoro"
+    __table_args__ = (
+        CheckConstraint("stato IN ('da_assegnare', 'assegnato', 'in_corso', 'completato', 'annullato')", name="ck_ordine_lavoro_stato"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    macchinario_id: Mapped[int] = mapped_column(ForeignKey("macchinario.id", ondelete="RESTRICT"))
+    guasto_id: Mapped[int | None] = mapped_column(ForeignKey("guasto.id", ondelete="RESTRICT"))
+    tecnico_id: Mapped[int | None] = mapped_column(ForeignKey("tecnico.id", ondelete="RESTRICT"))
+    descrizione: Mapped[str] = mapped_column(Text)
+    stato: Mapped[str] = mapped_column(String(20), server_default="da_assegnare")
+    data_creazione: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    data_pianificata: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    data_completamento: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    esito: Mapped[str | None] = mapped_column(Text)
