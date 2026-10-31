@@ -76,6 +76,7 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 - `String` + `CHECK` per `specializzazione`, come per gli altri elenchi fissi: più facile da modificare di un `Enum`.
 **Errori e correzioni:** il `CHECK` era stato scritto su `attivo` (inutile su una colonna già booleana, e confrontava una stringa invece di un booleano): spostato su `specializzazione`. Un refuso nel nome del vincolo e le lunghezze di `cognome` e `specializzazione` sono stati corretti prima di lanciare `create_all`, che non modifica le tabelle già create.
 **Alternative scartate:** cancellare i tecnici (perderebbe lo storico o sarebbe bloccato dalla chiave esterna); `Enum` per `specializzazione`.
-**Da decidere:** se `specializzazione` debba essere obbligatoria (come ora nel codice) o facoltativa (come nello schema iniziale).
+**Correzione (stesso giorno):** `specializzazione` doveva essere facoltativa, come nello schema iniziale, ma nel codice era obbligatoria (svista). Modello cambiato in `Mapped[str | None]` e colonna resa facoltativa con `ALTER TABLE tecnico ALTER COLUMN specializzazione DROP NOT NULL`, verificata con un inserimento senza specializzazione. Il `CHECK` resta valido: un valore `NULL` lo supera.
+**Limite noto:** modificare una tabella già creata richiede oggi un intervento manuale sul database, oltre alla modifica del modello; con dati veri serviranno le migrazioni.
 
 **Prossimo passo:** tabella `guasto`, con chiave esterna verso `macchinario` e i campi data.
