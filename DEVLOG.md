@@ -186,10 +186,23 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 **Verifica (da `/docs`):** dati validi → 201 (id 1); matricola già esistente → 409; `reparto_id` 10 → 404; stato "rotto" → 422 (`literal_error`).
 **Errori e correzioni:** `reparto_id: str` invece di `int` in `MacchinarioLettura` (con Pydantic v2 avrebbe dato un 500 al momento della risposta); 500 invece di 404 per il reparto inesistente; `db.refresh()` senza argomento.
 **Limiti noti / da fare:**
-- Il controllo del reparto e l'`INSERT` sono due operazioni separate, non atomiche. Se tra le due il reparto venisse cancellato, la chiave esterna darebbe un `IntegrityError` e il messaggio 409 sarebbe sbagliato. I dati non si rovinano (il database rifiuta comunque l'`INSERT`); sbaglia solo il messaggio. Oggi non esiste una rotta per cancellare i reparti e la chiave esterna è `RESTRICT`, quindi il caso non si può provocare. Da rendere atomico: soluzione da decidere.
+- Il controllo del reparto e l'`INSERT` sono due operazioni separate, non atomiche. Se tra le due il reparto venisse cancellato, la chiave esterna darebbe un `IntegrityError` e il messaggio 409 sarebbe sbagliato. I dati non si rovinano (il database rifiuta comunque l'`INSERT`); sbaglia solo il messaggio. Oggi non esiste una rotta per cancellare i reparti e la chiave esterna è `RESTRICT`, quindi il caso non si può provocare. Risolto il 2026-11-04 leggendo il codice SQLSTATE dell'errore (voce successiva).
 - `matricola` e `descrizione` vuote (`""`) sono accettate: Swagger invia `descrizione` come `""` e nel database finisce una stringa vuota invece di `NULL` (stesso caso del nome vuoto dei reparti): validazione in fase 2.
 - L'elenco degli stati è scritto in tre punti (due schemi e il `CHECK`): se cambia, vanno aggiornati tutti.
 - Il 404 e il 409 non sono ancora documentati in Swagger (`responses=`): fase 2.
 - La rotta scrive ancora direttamente nel database, senza servizi né repository.
+
+**Prossimo passo:** da decidere.
+
+## 2026-11-04 – Distinzione 404/409 con il codice SQLSTATE
+
+**Decisione:** in `POST /macchinari`, nell'`except IntegrityError as e`, dopo il `rollback` la rotta legge `codice = e.orig.sqlstate`. Se il codice è `"23503"` (violazione di chiave esterna) risponde 404 "Reparto non trovato"; altrimenti 409 "Esiste già un macchinario con questa matricola". Il controllo iniziale con `db.get` resta per il caso normale.
+**Motivo:**
+- `IntegrityError` copre qualunque vincolo violato, ma PostgreSQL indica quale con un codice SQLSTATE standard: `23505` per `UNIQUE`, `23503` per chiave esterna.
+- Controllo e `INSERT` sono due operazioni separate: se il reparto sparisse tra le due, il solo `db.get` non basterebbe e il 409 avrebbe un messaggio falso. Leggendo il vincolo realmente violato, la risposta è corretta anche in quel caso.
+- Con il driver psycopg 3 l'attributo è `sqlstate`; con psycopg2 sarebbe `pgcode`.
+**Alternative scartate:** togliere il `db.get` (nel caso normale si tenterebbe un `INSERT` destinato a fallire); un solo `except` con 409 (messaggio falso quando la causa è il reparto); confrontare il testo del messaggio d'errore (dipende dalla lingua e dalla versione del database).
+**Verifica:** togliendo temporaneamente le righe del `db.get`, `reparto_id` 10 → 404 dall'`except`; con le righe ripristinate, matricola già esistente → 409.
+**Limiti noti:** qualunque altro `IntegrityError` (`NOT NULL` `23502`, `CHECK` `23514`) finirebbe nel 409 con il messaggio della matricola; oggi la validazione Pydantic li blocca prima. La rotta scrive ancora direttamente nel database, senza servizi né repository.
 
 **Prossimo passo:** da decidere.
