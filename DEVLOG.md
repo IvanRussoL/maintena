@@ -159,3 +159,37 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 **Limiti noti:** `IntegrityError` copre qualunque vincolo violato, non solo il `UNIQUE`: va bene finché `reparto` ha solo quello; per tabelle con chiavi esterne servirà distinguere. L'`INSERT` fallito consuma comunque un id. Il 409 non è ancora documentato in Swagger (parametro `responses=`): rinviato alla fase 2. La rotta scrive ancora direttamente nel database, senza servizi né repository.
 
 **Prossimo passo:** da decidere.
+
+## 2026-11-04 – Lettura di un reparto: GET /reparti/{reparto_id}
+
+**Decisione:** `GET /reparti/{reparto_id}` restituisce un solo reparto. L'id è un parametro di percorso tipizzato (`reparto_id: int`); la ricerca usa `db.get(Reparto, reparto_id)`; se il risultato è `None` la rotta solleva `HTTPException(status_code=404, detail="Reparto non trovato")`. La risposta usa `response_model=RepartoLettura`.
+**Motivo:**
+- `db.get` cerca per chiave primaria ed è il modo diretto per leggere una riga dall'id; restituisce `None` se non esiste.
+- 404 Not Found dice che la risorsa richiesta non esiste; 200 con corpo vuoto nasconderebbe l'errore a chi usa l'API.
+- Il tipo `int` fa validare l'id a FastAPI: con un valore non numerico (`/reparti/abc`) risponde da solo 422 e la funzione non parte.
+- Lo schema di uscita è lo stesso della lista, così le due letture hanno la stessa forma.
+**Alternative scartate:** `select(Reparto).where(Reparto.id == reparto_id)` con `scalar_one_or_none()` (più lungo per una ricerca per chiave); restituire `None` o 200 con corpo vuoto.
+**Verifica:** id esistente → 200; id inesistente → 404 (gli id possono avere buchi: la sequenza di PostgreSQL non torna indietro dopo un `INSERT` fallito); id non numerico → 422 (visibile con una richiesta diretta; l'interfaccia `/docs` blocca prima l'invio).
+**Limite noto:** la query sta ancora nella rotta; quando nasceranno repository e servizi si sposterà nello strato repository.
+
+**Prossimo passo:** da decidere.
+
+## 2026-11-04 – Creazione di un macchinario: POST /macchinari
+
+**Decisione:** `POST /macchinari` crea un macchinario. I dati in ingresso sono descritti da `MacchinarioCreazione` (`matricola`, `nome`, `reparto_id`; `modello` e `descrizione` facoltativi; `stato` con predefinito `"attivo"`), la risposta da `MacchinarioLettura` (gli stessi campi più `id`). In entrambi gli schemi `stato` è un `Literal["attivo", "fermo", "dismesso"]`. La rotta risponde 201 e, in ordine: controlla con `db.get(Reparto, dati.reparto_id)` che il reparto esista (altrimenti 404 "Reparto non trovato"); crea `Macchinario(**dati.model_dump())`; fa `db.commit()` dentro un `try` (su `IntegrityError`: `rollback` e 409 "Esiste già un macchinario con questa matricola"); infine `db.refresh` e restituisce l'oggetto.
+**Motivo:**
+- `Literal` fa rifiutare a Pydantic uno stato fuori elenco con 422, prima che la richiesta arrivi al database; il `CHECK` del database resta come seconda barriera.
+- Il reparto si controlla prima dell'`INSERT`: una chiave esterna violata darebbe un `IntegrityError` uguale a quello della matricola doppia, e il 409 avrebbe un messaggio falso. Con il controllo, il reparto inesistente ha il suo 404 e l'`IntegrityError` che resta è quello della matricola.
+- 404 per il reparto: la risorsa a cui la richiesta si riferisce non esiste.
+- `dati.model_dump()` trasforma lo schema in dizionario e `**` lo passa come argomenti con nome, senza ricopiare i campi uno a uno; funziona finché schema e modello usano gli stessi nomi.
+**Alternative scartate:** affidarsi alla sola chiave esterna del database (non permette di distinguere la causa dell'errore).
+**Verifica (da `/docs`):** dati validi → 201 (id 1); matricola già esistente → 409; `reparto_id` 10 → 404; stato "rotto" → 422 (`literal_error`).
+**Errori e correzioni:** `reparto_id: str` invece di `int` in `MacchinarioLettura` (con Pydantic v2 avrebbe dato un 500 al momento della risposta); 500 invece di 404 per il reparto inesistente; `db.refresh()` senza argomento.
+**Limiti noti / da fare:**
+- Il controllo del reparto e l'`INSERT` sono due operazioni separate, non atomiche. Se tra le due il reparto venisse cancellato, la chiave esterna darebbe un `IntegrityError` e il messaggio 409 sarebbe sbagliato. I dati non si rovinano (il database rifiuta comunque l'`INSERT`); sbaglia solo il messaggio. Oggi non esiste una rotta per cancellare i reparti e la chiave esterna è `RESTRICT`, quindi il caso non si può provocare. Da rendere atomico: soluzione da decidere.
+- `matricola` e `descrizione` vuote (`""`) sono accettate: Swagger invia `descrizione` come `""` e nel database finisce una stringa vuota invece di `NULL` (stesso caso del nome vuoto dei reparti): validazione in fase 2.
+- L'elenco degli stati è scritto in tre punti (due schemi e il `CHECK`): se cambia, vanno aggiornati tutti.
+- Il 404 e il 409 non sono ancora documentati in Swagger (`responses=`): fase 2.
+- La rotta scrive ancora direttamente nel database, senza servizi né repository.
+
+**Prossimo passo:** da decidere.
