@@ -5,8 +5,8 @@ from sqlalchemy.exc import IntegrityError
 
 
 from app.database import get_db
-from app.models import Reparto
-from app.schemas import RepartoLettura, RepartoCreazione
+from app.models import Reparto, Macchinario
+from app.schemas import RepartoLettura, RepartoCreazione, MacchinarioCreazione, MacchinarioLettura
 
 app = FastAPI(title="Maintena")
 
@@ -36,3 +36,17 @@ def crea_reparto(dati: RepartoCreazione, db: Session = Depends(get_db)):
         raise HTTPException(status_code=409, detail="Esiste già un reparto con questo nome")
     db.refresh(reparto)
     return reparto
+
+@app.post("/macchinari", response_model=MacchinarioLettura, status_code=201)
+def crea_macchinario(dati: MacchinarioCreazione, db: Session = Depends(get_db)):
+    if db.get(Reparto, dati.reparto_id) is None:
+        raise HTTPException(status_code=404, detail="Reparto non trovato")
+    macchinario = Macchinario(**dati.model_dump())
+    db.add(macchinario)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Esiste già un macchinario con questa matricola")
+    db.refresh(macchinario)
+    return macchinario
