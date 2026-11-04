@@ -14,6 +14,9 @@ app = FastAPI(title="Maintena")
 def stato():
     return {"applicazione": "Maintena", "stato": "attiva"}
 
+###################################################################
+# API reparti
+
 @app.get("/reparti", response_model=list[RepartoLettura])
 def lista_reparti(db: Session = Depends(get_db)):
     return db.scalars(select(Reparto)).all()
@@ -37,6 +40,12 @@ def crea_reparto(dati: RepartoCreazione, db: Session = Depends(get_db)):
     db.refresh(reparto)
     return reparto
 
+
+##################################################################
+
+#################################################################
+# API macchinari
+
 @app.post("/macchinari", response_model=MacchinarioLettura, status_code=201)
 def crea_macchinario(dati: MacchinarioCreazione, db: Session = Depends(get_db)):
     if db.get(Reparto, dati.reparto_id) is None:
@@ -53,3 +62,10 @@ def crea_macchinario(dati: MacchinarioCreazione, db: Session = Depends(get_db)):
         raise HTTPException(status_code=409, detail="Esiste già un macchinario con questa matricola")
     db.refresh(macchinario)
     return macchinario
+
+@app.get("/macchinari", response_model=list[MacchinarioLettura])
+def elenca_macchinari(reparto_id: int | None =  None, db: Session = Depends(get_db)):
+    query = select(Macchinario)
+    if reparto_id is not None:
+        query = query.where(Macchinario.reparto_id == reparto_id)
+    return db.scalars(query).all()
