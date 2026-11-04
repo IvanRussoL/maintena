@@ -132,3 +132,18 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 **Limite noto:** per ora la rotta esegue la query da sola; quando nasceranno repository e servizi la query si sposterà nello strato repository. Con la tabella vuota la risposta è `[]`.
 
 **Prossimo passo:** `POST /reparti`, per creare reparti e provare la lettura con dati veri.
+
+## 2026-11-04 – Creazione di reparti: POST /reparti
+
+**Decisione:** `POST /reparti` crea un reparto. I dati in ingresso sono descritti da uno schema Pydantic separato, `RepartoCreazione` (`nome: str`, `descrizione: str | None = None`), diverso da `RepartoLettura`, che descrive la risposta. La rotta ha `status_code=201` e `response_model=RepartoLettura`. Crea l'oggetto `Reparto`, poi `db.add`, `db.commit` e `db.refresh`, e lo restituisce.
+**Motivo:**
+- Schema di ingresso e di uscita separati: il client non deve mandare l'`id`, che assegna il database, mentre nella risposta l'`id` serve.
+- `descrizione: str | None = None`: il tipo dichiara che il valore può essere assente o `null`, e il predefinito la rende facoltativa. `str = None` dichiarerebbe un tipo falso e rifiuterebbe un `null` esplicito con un errore 422.
+- `201 Created` e non `200`: la richiesta ha creato una risorsa.
+- `db.add` mette l'oggetto in sessione, `db.commit` scrive nel database, `db.refresh` rilegge la riga per avere i valori assegnati dal database (l'`id`).
+- `response_model=RepartoLettura` filtra la risposta ai soli campi dello schema; senza di esso (o con lo schema sbagliato) la risposta non ha l'`id`.
+**Alternative scartate:** riusare `RepartoLettura` anche in ingresso (obbligherebbe a mandare l'`id`); rispondere 200; restituire solo un messaggio di conferma senza il reparto creato.
+**Errori e correzioni:** `descrizione: str = None` (tipo falso); `response_model` iniziale sbagliato (risposta senza `id`); `git add /app` fallito perché il percorso era assoluto (`git add app` funziona): tutti corretti.
+**Limiti noti:** un nome già esistente fa fallire l'`INSERT` sul vincolo `UNIQUE` e la rotta risponde 500 (`IntegrityError` non gestito); l'`id` della riga fallita viene comunque consumato, perché le sequenze di PostgreSQL non tornano indietro. Un nome vuoto (`""`) è accettato: validazione in fase 2. La rotta scrive ancora direttamente nel database, senza servizi né repository.
+
+**Prossimo passo:** rispondere 409 Conflict quando il nome del reparto esiste già.
