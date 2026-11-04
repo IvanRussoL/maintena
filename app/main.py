@@ -18,6 +18,13 @@ def stato():
 def lista_reparti(db: Session = Depends(get_db)):
     return db.scalars(select(Reparto)).all()
 
+@app.get("/reparti/{reparto_id}", response_model=RepartoLettura)
+def leggi_reparto(reparto_id: int, db: Session = Depends(get_db)):
+    reparto = db.get(Reparto, reparto_id)
+    if reparto is None:
+        raise HTTPException(status_code=404, detail="Reparto non trovato")
+    return reparto
+
 @app.post("/reparti", response_model=RepartoLettura, status_code=201)
 def crea_reparto(dati: RepartoCreazione, db: Session = Depends(get_db)):
     reparto = Reparto(nome=dati.nome, descrizione=dati.descrizione)
