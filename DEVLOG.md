@@ -206,3 +206,21 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 **Limiti noti:** qualunque altro `IntegrityError` (`NOT NULL` `23502`, `CHECK` `23514`) finirebbe nel 409 con il messaggio della matricola; oggi la validazione Pydantic li blocca prima. La rotta scrive ancora direttamente nel database, senza servizi né repository.
 
 **Prossimo passo:** da decidere.
+
+## 2026-11-04 – Elenco dei macchinari con filtro facoltativo: GET /macchinari
+
+**Decisione:** `GET /macchinari` restituisce l'elenco dei macchinari. Un filtro facoltativo `reparto_id`, passato come parametro di query (`/macchinari?reparto_id=1`), restringe l'elenco ai macchinari di quel reparto. La funzione è `elenca_macchinari(reparto_id: int | None = None, db: Session = Depends(get_db))` con `response_model=list[MacchinarioLettura]`. La query si costruisce a pezzi: `query = select(Macchinario)`; solo se `reparto_id is not None` si aggiunge `query = query.where(Macchinario.reparto_id == reparto_id)`; poi `return db.scalars(query).all()`.
+**Motivo:**
+- Il filtro è un parametro di **query** e non di percorso: il percorso (`/reparti/{reparto_id}`) identifica una risorsa precisa, la query restringe un elenco e può mancare.
+- `int | None = None` dice che il parametro è facoltativo e che, se manca, vale `None`; il tipo dichiarato ammette il valore predefinito.
+- `select(...)` descrive la query ma non la esegue, e `.where(...)` ne restituisce una nuova: così il filtro si aggiunge solo quando serve e l'esecuzione resta una sola, in `db.scalars(...)`.
+- Un filtro senza risultati risponde 200 con `[]`, non 404: l'elenco esiste ed è vuoto; il 404 è per una risorsa specifica che non c'è.
+**Alternative scartate:** nessuna discussa in questo passo.
+**Verifica (da `/docs`):** senza filtro 3 macchinari (id 1 e 4 nel reparto 1, id 6 nel reparto 3); `reparto_id=1` → 2 macchinari; `reparto_id=10` → `[]`; `reparto_id=abc` → 422 (`loc: query`). Il primo tentativo non dimostrava il filtro, perché tutti i macchinari erano nel reparto 1 e il risultato sarebbe stato identico anche con un filtro che non filtra; il test è stato rifatto aggiungendo un macchinario nel reparto 3.
+**Errori e correzioni:** `select(reparto_id)` invece di `select(Macchinario)` (si seleziona la classe del modello, non il valore del filtro); `int = None` invece di `int | None = None`.
+**Limiti noti:**
+- Un `reparto_id` inesistente non dà 404 ma `[]`: la rotta non controlla che il reparto esista.
+- L'elenco è completo, senza paginazione.
+- La query sta ancora nella rotta; quando nasceranno repository e servizi si sposterà nello strato repository.
+
+**Prossimo passo:** da decidere.
