@@ -45,8 +45,11 @@ def crea_macchinario(dati: MacchinarioCreazione, db: Session = Depends(get_db)):
     db.add(macchinario)
     try:
         db.commit()
-    except IntegrityError:
+    except IntegrityError as e:
         db.rollback()
+        codice = e.orig.sqlstate
+        if codice == "23503":
+            raise HTTPException(status_code=404, detail="Reparto non trovato")
         raise HTTPException(status_code=409, detail="Esiste già un macchinario con questa matricola")
     db.refresh(macchinario)
     return macchinario
