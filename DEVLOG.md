@@ -147,3 +147,15 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 **Limiti noti:** un nome già esistente fa fallire l'`INSERT` sul vincolo `UNIQUE` e la rotta risponde 500 (`IntegrityError` non gestito); l'`id` della riga fallita viene comunque consumato, perché le sequenze di PostgreSQL non tornano indietro. Un nome vuoto (`""`) è accettato: validazione in fase 2. La rotta scrive ancora direttamente nel database, senza servizi né repository.
 
 **Prossimo passo:** rispondere 409 Conflict quando il nome del reparto esiste già.
+
+## 2026-11-04 – Nome reparto duplicato: 409 Conflict
+
+**Decisione:** in `POST /reparti` il `db.commit()` è dentro un `try`; se solleva `IntegrityError` (vincolo `UNIQUE` su `nome`) la rotta fa `db.rollback()` e solleva `HTTPException(status_code=409, detail="Esiste già un reparto con questo nome")`. `db.add` resta fuori dal `try`: non parla col database, l'errore nasce al `commit`.
+**Motivo:**
+- 409 Conflict dice che la richiesta è valida ma in conflitto con lo stato dei dati; 500 indicherebbe un guasto del server, mentre qui la causa è la richiesta.
+- Dopo un errore la transazione è fallita: il `rollback` riporta la sessione in uno stato utilizzabile.
+- `HTTPException` interrompe la funzione e FastAPI la trasforma nella risposta con il codice e il messaggio scelti.
+**Alternative scartate:** controllare prima con una `SELECT` se il nome esiste (due richieste simultanee possono passare entrambe il controllo e una fallisce comunque sul `UNIQUE`: il vincolo del database serve comunque); lasciare il 500.
+**Limiti noti:** `IntegrityError` copre qualunque vincolo violato, non solo il `UNIQUE`: va bene finché `reparto` ha solo quello; per tabelle con chiavi esterne servirà distinguere. L'`INSERT` fallito consuma comunque un id. Il 409 non è ancora documentato in Swagger (parametro `responses=`): rinviato alla fase 2. La rotta scrive ancora direttamente nel database, senza servizi né repository.
+
+**Prossimo passo:** da decidere.
