@@ -1,8 +1,9 @@
+"""Applicazione FastAPI di Maintena: rotte per reparti e macchinari."""
+
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
-
 
 from app.database import get_db
 from app.models import Reparto, Macchinario
@@ -10,44 +11,65 @@ from app.schemas import RepartoLettura, RepartoCreazione, MacchinarioCreazione, 
 
 app = FastAPI(title="Maintena")
 
+
 @app.get("/")
 def stato():
+    """Controlla che l'applicazione sia attiva."""
     return {"applicazione": "Maintena", "stato": "attiva"}
 
-###################################################################
-# API reparti
+
+# ------------------------------------------------------------------
+# Reparti
+# ------------------------------------------------------------------
 
 @app.get("/reparti", response_model=list[RepartoLettura])
 def lista_reparti(db: Session = Depends(get_db)):
+    """Restituisce tutti i reparti."""
     return db.scalars(select(Reparto)).all()
+
 
 @app.get("/reparti/{reparto_id}", response_model=RepartoLettura)
 def leggi_reparto(reparto_id: int, db: Session = Depends(get_db)):
+    """Restituisce un reparto dato il suo id.
+
+    Risponde 404 se il reparto non esiste.
+    """
     reparto = db.get(Reparto, reparto_id)
     if reparto is None:
         raise HTTPException(status_code=404, detail="Reparto non trovato")
     return reparto
 
+
 @app.post("/reparti", response_model=RepartoLettura, status_code=201)
 def crea_reparto(dati: RepartoCreazione, db: Session = Depends(get_db)):
+    """Crea un nuovo reparto.
+
+    Risponde 409 se esiste già un reparto con lo stesso nome.
+    """
     reparto = Reparto(nome=dati.nome, descrizione=dati.descrizione)
     db.add(reparto)
     try:
         db.commit()
     except IntegrityError:
+        # L'unicità del nome la controlla il database (vincolo UNIQUE):
+        # annulliamo la transazione fallita prima di rispondere.
         db.rollback()
         raise HTTPException(status_code=409, detail="Esiste già un reparto con questo nome")
-    db.refresh(reparto)
+    db.refresh(reparto)  # ricarica id e valori predefiniti assegnati dal database
     return reparto
 
 
-##################################################################
-
-#################################################################
-# API macchinari
+# ------------------------------------------------------------------
+# Macchinari
+# ------------------------------------------------------------------
 
 @app.post("/macchinari", response_model=MacchinarioLettura, status_code=201)
 def crea_macchinario(dati: MacchinarioCreazione, db: Session = Depends(get_db)):
+    """Crea un nuovo macchinario in un reparto esistente.
+
+    Risponde 404 se il reparto non esiste e 409 se la matricola è già usata.
+    """
+    # Controllo esplicito: dà un messaggio chiaro senza tentare l'INSERT.
     if db.get(Reparto, dati.reparto_id) is None:
         raise HTTPException(status_code=404, detail="Reparto non trovato")
     macchinario = Macchinario(**dati.model_dump())
@@ -56,15 +78,21 @@ def crea_macchinario(dati: MacchinarioCreazione, db: Session = Depends(get_db)):
         db.commit()
     except IntegrityError as e:
         db.rollback()
-        codice = e.orig.sqlstate
-        if codice == "23503":
+        # SQLSTATE 23503 = chiave esterna violata: il reparto è sparito
+        # tra il controllo sopra e il commit. Altrimenti è la matricola doppia.
+        if e.orig.sqlstate == "23503":
             raise HTTPException(status_code=404, detail="Reparto non trovato")
         raise HTTPException(status_code=409, detail="Esiste già un macchinario con questa matricola")
     db.refresh(macchinario)
     return macchinario
 
+
 @app.get("/macchinari", response_model=list[MacchinarioLettura])
-def elenca_macchinari(reparto_id: int | None =  None, db: Session = Depends(get_db)):
+def elenca_macchinari(reparto_id: int | None = None, db: Session = Depends(get_db)):
+    """Restituisce i macchinari, filtrati per reparto se è indicato `reparto_id`.
+
+    Un reparto senza macchinari (o inesistente) restituisce una lista vuota, non 404.
+    """
     query = select(Macchinario)
     if reparto_id is not None:
         query = query.where(Macchinario.reparto_id == reparto_id)
