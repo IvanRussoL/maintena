@@ -272,3 +272,20 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 **Limiti noti:** nessun ordinamento né paginazione; la query sta ancora nella rotta, senza strato servizi né repository.
 
 **Prossimo passo:** da decidere.
+
+## 2026-11-07 – Creazione di un tecnico: POST /tecnici
+
+**Decisione:** `POST /tecnici` crea un tecnico e risponde 201 con `TecnicoLettura`. Schema d'ingresso `TecnicoCreazione` (`codice_dipendente`, `nome`, `cognome`, `specializzazione` facoltativa); `attivo` non viene dal client: lo scrive il database (`true`). Se il codice dipendente esiste già risponde 409 "Esiste già un tecnico con questo codice".
+**Motivo:**
+- Il codice dipendente ha un vincolo `UNIQUE` nel database: è lui la garanzia, quindi la rotta non fa un controllo preventivo ma intercetta l'`IntegrityError` al `commit`.
+- Nell'`except` il `rollback` va per primo (rende di nuovo utilizzabile la sessione); poi il codice SQLSTATE `23505` (`UNIQUE`) diventa 409 e ogni altro errore viene rilanciato con `raise`, come in `POST /guasti`.
+- `attivo` non sta nello schema d'ingresso perché nel modello ha `server_default="true"`; sta nello schema di lettura (`bool`), riletto da `db.refresh`.
+**Alternative scartate:** nessuna discussa in questo passo.
+**Verifica (da `/docs`):** dati validi → 201 con `attivo` true; codice già esistente → 409; `specializzazione` fuori elenco o stringa vuota → 500; `specializzazione` omessa → 201 con `null`.
+**Errori e correzioni:** `id = int` al posto di `id: int`; `from_attributes` mancante; `attivo` nello schema d'ingresso e poi dichiarato `str` invece di `bool`; codice doppio non gestito (500); nell'`except`, `23514` al posto di `23505` e `rollback` dopo l'`if`.
+**Limiti noti:**
+- Una `specializzazione` non valida dà 500 invece di 422: il `CHECK` del database scatta e l'errore viene rilanciato. La stringa vuota non è `null` e viola lo stesso `CHECK`. Da risolvere in fase 2 con `Literal["meccanica", "elettrica", "idraulica", "elettronica"] | None = None` nello schema.
+- `nome`, `cognome` e `codice_dipendente` accettano la stringa vuota (fase 2).
+- Controllo e scrittura sono nella rotta, senza strato servizi né repository.
+
+**Prossimo passo:** da decidere.
