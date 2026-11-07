@@ -139,3 +139,14 @@ def crea_guasto(dati: GuastoCreazione, db: Session = Depends(get_db)):
         raise
     db.refresh(guasto)
     return guasto
+
+@app.get("/guasti", response_model=list[GuastoLettura])
+def elenca_guasti(macchinario_id: int | None = None, db: Session = Depends(get_db)):
+    """Restituisce i guasti, filtrati per macchinario se è indicato `macchinario_id`.
+
+    Un macchinario senza guasti (o inesistente) restituisce una lista vuota, non 404.
+    """
+    query = select(Guasto)
+    if macchinario_id is not None:
+        query = query.where(Guasto.macchinario_id == macchinario_id)
+    return db.scalars(query).all()
