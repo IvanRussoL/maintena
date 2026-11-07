@@ -257,3 +257,18 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 - Controllo e scrittura sono nella rotta, senza strato servizi né repository.
 
 **Prossimo passo:** da decidere.
+
+## 2026-11-07 – Elenco dei guasti: GET /guasti
+
+**Decisione:** `GET /guasti` restituisce l'elenco dei guasti, con filtro facoltativo `?macchinario_id=`. Risposta 200 con `list[GuastoLettura]`; senza filtro tutti i guasti, con filtro solo quelli del macchinario indicato.
+**Motivo:**
+- Stesso schema di `GET /macchinari`: il parametro facoltativo si scrive `int | None = None` e la query si costruisce a pezzi (`query = query.where(...)`) ed è eseguita una volta sola alla fine.
+- Il filtro si applica con `is not None`, non con un controllo di verità: così anche un valore come 0 sarebbe un filtro valido.
+- Un macchinario senza guasti (o inesistente) dà `[]` con 200, non 404: un elenco vuoto è una risposta valida; il 404 è per la singola risorsa che non esiste.
+**Alternative scartate:** nessuna discussa in questo passo.
+**Verifica (da `/docs`):** senza filtro tutti i guasti; `macchinario_id=1` solo i guasti di quel macchinario; `macchinario_id=99` lista vuota.
+**Errori e correzioni:** percorso `/macchinari` al posto di `/guasti` (rotta duplicata); condizione `is None` invertita; `.all` senza parentesi; docstring con la frase invertita.
+**Note:** gli id dei guasti non sono consecutivi (manca il 2): probabile effetto della sequenza di PostgreSQL, che non torna indietro dopo un `INSERT` fallito (ipotesi, non verificata). Non è un errore.
+**Limiti noti:** nessun ordinamento né paginazione; la query sta ancora nella rotta, senza strato servizi né repository.
+
+**Prossimo passo:** da decidere.
