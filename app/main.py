@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
 from app.database import get_db
-from app.models import Reparto, Macchinario
-from app.schemas import RepartoLettura, RepartoCreazione, MacchinarioCreazione, MacchinarioLettura
+from app.models import Reparto, Macchinario, Guasto
+from app.schemas import RepartoLettura, RepartoCreazione, MacchinarioCreazione, MacchinarioLettura, GuastoCreazione, GuastoLettura
 
 app = FastAPI(title="Maintena")
 
@@ -109,3 +109,33 @@ def leggi_macchinario(macchinario_id: int, db: Session = Depends(get_db)):
     if macchinario is None:
         raise HTTPException(status_code=404, detail="Macchinario non trovato")
     return macchinario
+
+# ------------------------------------------------------------------
+# Guasto
+# ------------------------------------------------------------------
+
+@app.post("/guasti", response_model=GuastoLettura, status_code=201)
+def crea_guasto(dati: GuastoCreazione, db: Session = Depends(get_db)):
+    """Segnala un nuovo guasto su un macchinario esistente.
+
+    Lo stato parte da "aperto" e la data di segnalazione la scrive il database.
+    Risponde 404 se il macchinario non esiste.
+    """
+    # Controllo esplicito: dà un messaggio chiaro senza tentare l'INSERT.
+    if db.get(Macchinario, dati.macchinario_id) is None:
+        raise HTTPException(status_code=404, detail="Macchinario non trovato")
+    guasto = Guasto(**dati.model_dump())
+    db.add(guasto)
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        # SQLSTATE 23503 = chiave esterna violata: il macchinario è sparito
+        # tra il controllo sopra e il commit.
+        if e.orig.sqlstate == "23503":
+            raise HTTPException(status_code=404, detail="Macchinario non trovato")
+        # Ogni altro errore (es. 23514, priorità non valida) viene rilanciato
+        # invece di restituire un guasto mai salvato. Validazione in fase 2.
+        raise
+    db.refresh(guasto)
+    return guasto

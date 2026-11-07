@@ -1,6 +1,10 @@
 from pydantic import BaseModel, ConfigDict
 from typing import Literal
+from datetime import datetime
 
+# ----------------------------------------------------------
+# Reparto
+# ----------------------------------------------------------
 class RepartoCreazione(BaseModel):
     nome: str
     descrizione: str | None = None
@@ -12,6 +16,10 @@ class RepartoLettura(BaseModel):
     id: int
     nome: str
     descrizione: str | None
+
+# ----------------------------------------------------------
+# Macchinario
+# ----------------------------------------------------------    
 
 class MacchinarioLettura(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -32,3 +40,27 @@ class MacchinarioCreazione(BaseModel):
     stato: Literal["attivo","fermo","dismesso"] = "attivo"
     descrizione: str | None = None
 
+# ----------------------------------------------------------
+# Guasto
+# ----------------------------------------------------------
+
+class GuastoLettura(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    macchinario_id: int
+    descrizione: str
+    data_segnalazione: datetime
+    priorita: str
+    stato: str
+    data_chiusura: datetime | None 
+    segnalato_da: str
+
+
+class GuastoCreazione(BaseModel):
+    macchinario_id: int
+    descrizione: str
+    priorita: str
+    segnalato_da: str
+
+ 
