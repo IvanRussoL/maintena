@@ -97,3 +97,15 @@ def elenca_macchinari(reparto_id: int | None = None, db: Session = Depends(get_d
     if reparto_id is not None:
         query = query.where(Macchinario.reparto_id == reparto_id)
     return db.scalars(query).all()
+
+
+@app.get("/macchinari/{macchinario_id}", response_model=MacchinarioLettura)
+def leggi_macchinario(macchinario_id: int, db: Session = Depends(get_db)):
+    """Restituisce un macchinario dato il suo id.
+
+    Risponde 404 se il macchinario non esiste.
+    """
+    macchinario = db.get(Macchinario, macchinario_id)
+    if macchinario is None:
+        raise HTTPException(status_code=404, detail="Macchinario non trovato")
+    return macchinario
