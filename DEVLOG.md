@@ -239,3 +239,21 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 **Limiti noti:** il 404 compare in Swagger come "Undocumented": si documenta con `responses=` in fase 2. La lettura sta ancora nella rotta, senza strato servizi né repository.
 
 **Prossimo passo:** da decidere.
+
+## 2026-11-07 – Segnalazione di un guasto: POST /guasti
+
+**Decisione:** `POST /guasti` crea un guasto su un macchinario esistente e risponde 201 con `GuastoLettura`. Schema d'ingresso `GuastoCreazione` (`macchinario_id`, `descrizione`, `priorita`, `segnalato_da`); `stato` (`aperto`) e `data_segnalazione` non vengono dal client: li scrive il database. Se il macchinario non esiste risponde 404 "Macchinario non trovato".
+**Motivo:**
+- Due schemi, come per reparti e macchinari: uno d'ingresso (senza `id`, `stato`, date automatiche) e uno di lettura (con tutti i campi, `from_attributes=True`). Entrambi sono oggetti di trasferimento dati, separati dal modello SQLAlchemy.
+- `priorita` è obbligatoria nello schema perché la colonna non ha un valore predefinito.
+- Il macchinario si controlla prima con `db.get` (messaggio chiaro, nessun `INSERT` inutile); l'`except IntegrityError` con SQLSTATE `23503` copre il caso in cui il macchinario sparisca tra il controllo e il `commit`, come in `POST /macchinari`.
+- Ogni altro `IntegrityError` viene rilanciato con `raise`: senza, la funzione restituirebbe un guasto mai salvato.
+**Alternative scartate:** nessuna discussa in questo passo.
+**Verifica (da `/docs`):** dati validi → 201 con `stato` "aperto", `data_segnalazione` valorizzata e `data_chiusura` null; `macchinario_id` 99 → 404; `priorita` "lorenzo" → 500.
+**Errori e correzioni:** schema d'ingresso sbagliato nella firma (`MacchinarioCreazione`); `macchinario_id` mancante in `GuastoLettura`; `db.refresh()` senza argomento; `except` che non rilanciava gli errori diversi da 23503.
+**Limiti noti:**
+- Una priorità non valida dà 500 invece di 422: il `CHECK` del database scatta e l'errore viene rilanciato. Da risolvere in fase 2 con `Literal["bassa", "media", "alta", "critica"]` nello schema.
+- `descrizione` e `segnalato_da` accettano la stringa vuota (fase 2).
+- Controllo e scrittura sono nella rotta, senza strato servizi né repository.
+
+**Prossimo passo:** da decidere.
