@@ -63,4 +63,22 @@ class GuastoCreazione(BaseModel):
     priorita: str
     segnalato_da: str
 
- 
+# ----------------------------------------------------------
+# Guasto
+# ----------------------------------------------------------
+
+class TecnicoCreazione(BaseModel):
+    codice_dipendente: str
+    nome: str
+    cognome: str
+    specializzazione: str | None = None
+
+class TecnicoLettura(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    codice_dipendente: str
+    nome: str
+    cognome: str
+    specializzazione: str | None
+    attivo: bool 

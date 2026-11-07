@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
 from app.database import get_db
-from app.models import Reparto, Macchinario, Guasto
-from app.schemas import RepartoLettura, RepartoCreazione, MacchinarioCreazione, MacchinarioLettura, GuastoCreazione, GuastoLettura
+from app.models import Reparto, Macchinario, Guasto, Tecnico
+from app.schemas import RepartoLettura, RepartoCreazione, MacchinarioCreazione, MacchinarioLettura, GuastoCreazione, GuastoLettura, TecnicoCreazione, TecnicoLettura
 
 app = FastAPI(title="Maintena")
 
@@ -150,3 +150,27 @@ def elenca_guasti(macchinario_id: int | None = None, db: Session = Depends(get_d
     if macchinario_id is not None:
         query = query.where(Guasto.macchinario_id == macchinario_id)
     return db.scalars(query).all()
+
+# ------------------------------------------------------------------
+# Tecnico
+# ------------------------------------------------------------------
+@app.post("/tecnici", response_model=TecnicoLettura, status_code=201)
+def crea_tecnico(dati: TecnicoCreazione, db: Session = Depends(get_db)):
+    """Crea un nuovo tecnico.
+    
+    Risponde 409 se esiste già un tecnico con lo stesso codice.
+    """
+    tecnico = Tecnico(**dati.model_dump())
+    db.add(tecnico)
+    try:
+        db.commit()
+    except IntegrityError as e:
+        # annulliamo la transazione fallita prima di rispondere.
+        db.rollback()
+        # L'unicità del codice la controlla il database (vincolo UNIQUE):
+        if e.orig.sqlstate == "23505":
+            raise HTTPException(status_code=409, detail="Esiste già un tecnico con questo codice")
+        # Ogni altro errore (es. 23514, specializzazione non valida) viene rilanciato.
+        raise 
+    db.refresh(tecnico)
+    return tecnico
