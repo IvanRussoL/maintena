@@ -224,3 +224,18 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 - La query sta ancora nella rotta; quando nasceranno repository e servizi si sposterà nello strato repository.
 
 **Prossimo passo:** da decidere.
+
+## 2026-11-07 – Docstring alle rotte e lettura di un macchinario: GET /macchinari/{macchinario_id}
+
+**Decisione:** (1) il modulo `app/main.py` e ogni rotta hanno un docstring; nelle rotte che possono rispondere con un errore il docstring elenca i codici (404, 409). (2) `GET /macchinari/{macchinario_id}` restituisce un macchinario per id: `db.get(Macchinario, macchinario_id)`; se non esiste risponde 404 "Macchinario non trovato". Risposta con `response_model=MacchinarioLettura`.
+**Motivo:**
+- Il docstring spiega cosa fa la rotta e quali errori può dare; non cambia il comportamento.
+- Per leggere una risorsa precisa l'id va nel percorso (`/macchinari/{macchinario_id}`); `db.get` cerca per chiave primaria. Un id che non esiste è un 404, non un elenco vuoto.
+- Il nome tra graffe nel percorso deve coincidere con il nome del parametro della funzione: FastAPI li collega per nome. Se differiscono, il parametro della funzione diventa un parametro di query obbligatorio e la richiesta risponde 422.
+- A `Depends` si passa la funzione (`Depends(get_db)`), non il suo risultato: FastAPI la chiama a ogni richiesta.
+**Alternative scartate:** nessuna discussa in questo passo.
+**Verifica (da `/docs`):** id esistente → 200; id 200 (inesistente) → 404 "Macchinario non trovato".
+**Errori e correzioni:** nome nel percorso `{macchinari_id}` diverso dal parametro `macchinario_id`; `Depends(get_db())` con le parentesi.
+**Limiti noti:** il 404 compare in Swagger come "Undocumented": si documenta con `responses=` in fase 2. La lettura sta ancora nella rotta, senza strato servizi né repository.
+
+**Prossimo passo:** da decidere.
