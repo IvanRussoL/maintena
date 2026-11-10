@@ -7,8 +7,9 @@ from sqlalchemy.exc import IntegrityError
 
 from app.database import get_db
 from app.models import Reparto, Macchinario, Guasto, Tecnico, OrdineLavoro
-from app.schemas import RepartoLettura, RepartoCreazione, MacchinarioCreazione, MacchinarioLettura, GuastoCreazione, GuastoLettura, TecnicoCreazione, TecnicoLettura, OrdineLavoroCreazione, OrdineLavoroLettura
+from app.schemas import RepartoLettura, RepartoCreazione, MacchinarioCreazione, MacchinarioLettura, GuastoCreazione, GuastoLettura, TecnicoCreazione, TecnicoLettura, OrdineLavoroCreazione, OrdineLavoroLettura, OrdineLavoroAggiornamentoStato
 
+from datetime import datetime, timezone
 app = FastAPI(title="Maintena")
 
 
@@ -249,3 +250,24 @@ def elenca_ordini_lavoro(stato: str | None = None, db: Session = Depends(get_db)
     if stato is not None:
         q = q.where(OrdineLavoro.stato == stato)
     return db.scalars(q).all()
+
+@app.patch("/ordini-lavoro/{ordine_id}", response_model=OrdineLavoroLettura)
+def aggiorna_stato_ordine(ordine_id: int, dati: OrdineLavoroAggiornamentoStato, db: Session = Depends(get_db)):
+    """
+    Aggiorna lo stato di un ordine di lavoro.
+    """
+    ordine = db.get(OrdineLavoro, ordine_id)
+    if ordine is None:
+        raise HTTPException(status_code=404, detail="L'ordine non esiste")
+    ordine.stato = dati.stato
+    if ordine.stato == "completato":
+        ordine.data_completamento = datetime.now(timezone.utc)
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        if e.orig.sqlstate == "23514":
+            raise HTTPException(status_code=422, detail="Stato non valido")
+        raise
+    db.refresh(ordine)
+    return ordine

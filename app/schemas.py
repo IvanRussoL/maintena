@@ -107,3 +107,6 @@ class OrdineLavoroLettura(BaseModel):
     data_pianificata: datetime | None
     data_completamento: datetime | None
     esito: str | None
+
+class OrdineLavoroAggiornamentoStato(BaseModel):
+    stato: str
