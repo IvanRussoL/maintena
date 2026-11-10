@@ -360,3 +360,24 @@ Diario di sviluppo: per ogni passo annoto la data, cosa ho deciso, perché e cos
 - La query sta nella rotta, senza strato servizi né repository.
 
 **Prossimo passo:** da decidere.
+
+## 2026-11-10 – Cambio di stato di un ordine: PATCH /ordini-lavoro/{id}
+
+**Decisione:** aggiungo `PATCH /ordini-lavoro/{ordine_id}` per cambiare lo stato di un ordine. Il corpo ha un solo campo, `stato`, in un nuovo schema `OrdineLavoroAggiornamentoStato`, obbligatorio: una PATCH di stato senza stato non ha senso. Se l'ordine non esiste rispondo 404 "L'ordine non esiste"; se il nuovo stato è `completato` imposto `data_completamento` con `datetime.now(timezone.utc)`.
+**Motivo:**
+- La data di completamento la scrive il server, non il client: non voglio che si possa mandare una data a piacere o dimenticarla. Con questa rotta `data_completamento` smette di restare sempre vuota.
+- Non c'è `db.add`: l'ordine preso con `db.get` è già nella sessione, SQLAlchemy vede che cambio `ordine.stato` e al `commit` genera da solo l'`UPDATE`.
+- Uno stato fuori elenco (per esempio `pippo`) viene rifiutato dal `CHECK` del database. Il `commit` fallisce con `IntegrityError` e SQLSTATE `23514`: faccio `rollback` e rispondo 422 "Stato non valido". Per qualunque altro errore di integrità rilancio con `raise`.
+**Alternative scartate:** validare lo stato subito con un `Literal` nello schema, così il 422 arriverebbe prima del database. Lo rimando alla fase 2, come per la priorità del guasto, la specializzazione del tecnico e il filtro `stato` di `GET /ordini-lavoro`.
+**Errori e correzioni:**
+- Nella firma avevo messo la classe dello schema al posto del parametro `dati`.
+- Controllavo il SQLSTATE `23503` (chiave esterna) invece di `23514` (`CHECK`).
+- Avevo scritto `OrdineLavoro(stato=dati.stato)`: serviva solo la stringa `dati.stato`, perché modifico un ordine che esiste già e non ne creo uno nuovo.
+**Verifica (da `/docs`):** ordine 1 → `in_corso`: 200; ordine 1 → `completato`: 200 con `data_completamento` valorizzata; stato `pippo`: 422; id 999: 404.
+**Limiti noti:**
+- `23514` vuol dire un `CHECK` qualsiasi: oggi l'unico di `ordine_lavoro` è quello sullo stato, quindi il messaggio è giusto, ma con un altro `CHECK` non lo sarebbe più. In fase 2 lo sostituisce un `Literal` in Pydantic.
+- Non controllo le transizioni: un ordine `completato` può tornare `da_assegnare`, e `data_completamento` resta valorizzata.
+- Se completo di nuovo un ordine, la data viene sovrascritta.
+- La scrittura sta nella rotta, senza strato servizi né repository.
+
+**Prossimo passo:** da decidere.
