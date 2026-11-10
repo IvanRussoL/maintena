@@ -332,7 +332,7 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 - La regola "il guasto appartiene al macchinario dell'ordine" non è garantita dal database (le due chiavi esterne sono indipendenti): è un controllo del codice. 409 perché gli id esistono entrambi ma non sono compatibili.
 - Il `try`/`except IntegrityError` con `23503` → 404 resta come ultima difesa: controllo e scrittura non sono atomici, e se tra il `db.get` e il `commit` un'altra richiesta elimina un'entità (race condition) la chiave esterna fa fallire l'INSERT. Il commento nel codice lo spiega.
 **Alternative scartate:** nessuna discussa in questo passo.
-**Verifica (da `/docs`):** macchinario inesistente → 404; tecnico inesistente → 404; macchinario 6 con guasto di un altro macchinario → 409; casi validi → 201. Non provati: guasto inesistente e race condition.
+**Verifica (da `/docs`):** macchinario inesistente → 404; tecnico inesistente → 404; macchinario 6 con guasto di un altro macchinario → 409; casi validi → 201. Guasto inesistente → 404 provato prima e dopo la modifica. Non provata la race condition.
 **Errori e correzioni:** un `db.get` dentro l'`except` (irraggiungibile); commenti copiati da `POST /guasti` e falsi per questa rotta; controllo del tecnico annidato nell'`if` del guasto, quindi saltato quando `guasto_id` mancava (portato allo stesso livello).
 **Limiti noti:**
 - Si può assegnare un tecnico con `attivo=false`.
