@@ -1,33 +1,33 @@
 # DEVLOG – Maintena
 
-Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartate.
+Diario di sviluppo: per ogni passo annoto la data, cosa ho deciso, perché e cosa ho scartato.
 
 ## 2026-10-28 – Schema dati a cinque tabelle
 
 **Decisione:** il gestionale parte con `reparto`, `macchinario`, `guasto`, `tecnico`, `ordine_lavoro`.
-**Motivo:** coprono il dominio minimo (dove sono le macchine, cosa si rompe, chi interviene). Lo stato del guasto è salvato e non calcolato dagli ordini, perché "risolto" è una decisione umana. Il tecnico non viene cancellato ma disattivato (`attivo`), per non perdere lo storico degli ordini.
+**Motivo:** coprono il dominio minimo (dove sono le macchine, cosa si rompe, chi interviene). Lo stato del guasto lo salvo nella tabella invece di calcolarlo dagli ordini, perché "risolto" lo decide una persona. Il tecnico non lo cancello ma lo disattivo (`attivo`), così non perdo lo storico degli ordini.
 **Alternative scartate:** tabelle per componenti e ruoli (non serve ancora); `tipo` correttiva/preventiva nell'ordine (si ricava da `guasto_id`); `reparto_id` nell'ordine (si ricava dal macchinario).
 
 ## 2026-10-28 – SQLAlchemy 2.0 come ORM
 
 **Decisione:** accesso al database con SQLAlchemy 2.0.
-**Motivo:** è lo strumento più diffuso in Python e tiene separati i modelli del database da quelli dell'API (Pydantic), come richiede l'architettura a strati. Si controlla sempre l'SQL generato.
+**Motivo:** è lo strumento più usato in Python e tiene separati i modelli del database da quelli dell'API (Pydantic), come vuole l'architettura a strati. Così posso sempre controllare l'SQL che genera.
 **Alternative scartate:** SQLModel (unisce i due tipi di modello e nasconde di più); Django ORM (legato a Django); SQL scritto a mano (più istruttivo, ma meno usato nei progetti reali).
 
 ## 2026-10-28 – PostgreSQL 18 installato in nativo su Windows
 
 **Decisione:** PostgreSQL 18 con l'installer ufficiale, database `maintena`.
-**Motivo:** è la via più semplice per iniziare, senza strati aggiuntivi.
+**Motivo:** è il modo più semplice per cominciare, senza niente in mezzo.
 **Alternative scartate:** WSL2 e Docker (Docker arriverà con la fase di produzione).
 
 ## 2026-10-30 – Creazione del repository
 
 **Decisione:** repository Git in `maintena_code/`, ambiente virtuale Python (3.13) in `maintena_code/venv`, ramo `main`.
-**Motivo:** il codice vive in un repository proprio, separato dalla documentazione di lavoro.
+**Motivo:** il codice sta in un repository suo, separato dalla documentazione di lavoro.
 **Dettagli:**
-- `.gitignore` esclude `venv/`, `.env`, `__pycache__/` e `*.pyc`, così ambiente, segreti e file generati non finiscono mai nel repository.
+- `.gitignore` esclude `venv/`, `.env`, `__pycache__/` e `*.pyc`, così ambiente virtuale, segreti e file generati non finiscono mai nel repository.
 - Primo commit: "Inizializza il repository con .gitignore".
-**Errore e correzione:** al primo tentativo `git init` e il venv erano stati creati nella cartella sopra, per un `cd` saltato. Dopo aver verificato che il venv fosse appena creato, sono stati eliminati e ricreati nel posto giusto.
+**Errore e correzione:** al primo tentativo `git init` e il venv li avevo creati nella cartella sopra, perché avevo saltato un `cd`. Dopo aver controllato che il venv fosse appena creato, li ho eliminati e rifatti nel posto giusto.
 
 **Prossimo passo:** definire le cinque tabelle con SQLAlchemy 2.0 (installando anche il driver PostgreSQL) e configurare la connessione con un file `.env` (escluso da Git) e un `.env.example` con valori finti.
 
@@ -37,7 +37,7 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 **Motivo:** psycopg 3 è la versione attuale del driver; la variante `[binary]` è precompilata e non richiede un compilatore su Windows. Tenere la stringa in `.env` evita password nel codice. Formato dell'URL: `postgresql+psycopg://utente:password@host:porta/database`.
 **Alternative scartate:** psycopg2 (versione precedente del driver).
 **Verifica:** una query `SELECT version()` dal venv restituisce PostgreSQL 18.6. Con `echo=True` si vede l'SQL eseguito, compresi `BEGIN`, `SELECT version()` e `ROLLBACK` (la transazione si chiude senza `commit()` perché non scriviamo nulla). Le dipendenze sono fissate in `requirements.txt`.
-**Errore e correzione:** le prime installazioni erano finite fuori dall'ambiente virtuale; dopo aver verificato il prefisso di Python con `sys.prefix` i pacchetti sono stati reinstallati nel venv.
+**Errore e correzione:** le prime installazioni erano finite fuori dall'ambiente virtuale; ho controllato il prefisso di Python con `sys.prefix` e ho reinstallato i pacchetti nel venv.
 
 **Prossimo passo:** prima tabella (`reparto`) come classe SQLAlchemy 2.0 e creazione nel database.
 
@@ -114,7 +114,7 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 
 **Decisione:** `app/main.py` crea l'applicazione con `FastAPI(title="Maintena")` ed espone una sola rotta, `GET /`, che restituisce `{"applicazione": "Maintena", "stato": "attiva"}`. FastAPI è installato con `pip install "fastapi[standard]"` (include Uvicorn e Pydantic) e si avvia in sviluppo con `fastapi dev app/main.py`; la documentazione interattiva è su `/docs`.
 **Motivo:**
-- Partire da una rotta minima che non tocca il database permette di verificare l'installazione e di capire il ciclo richiesta, funzione, risposta JSON prima di aggiungere sessione e schemi.
+- Ho iniziato con una rotta minima che non usa il database: così controllo che l'installazione funzioni e capisco come vanno richiesta, funzione e risposta JSON, prima di aggiungere sessione e schemi.
 - FastAPI restituisce JSON e genera da solo la documentazione `/docs`, utile per provare le rotte senza un client.
 **Alternative scartate:** Flask (già noto, ma senza validazione e documentazione automatiche); aggiungere subito `GET /reparti` (richiede la sessione del database e uno schema, due concetti nuovi in un passo solo).
 
@@ -214,8 +214,8 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 - Il filtro è un parametro di **query** e non di percorso: il percorso (`/reparti/{reparto_id}`) identifica una risorsa precisa, la query restringe un elenco e può mancare.
 - `int | None = None` dice che il parametro è facoltativo e che, se manca, vale `None`; il tipo dichiarato ammette il valore predefinito.
 - `select(...)` descrive la query ma non la esegue, e `.where(...)` ne restituisce una nuova: così il filtro si aggiunge solo quando serve e l'esecuzione resta una sola, in `db.scalars(...)`.
-- Un filtro senza risultati risponde 200 con `[]`, non 404: l'elenco esiste ed è vuoto; il 404 è per una risorsa specifica che non c'è.
-**Alternative scartate:** nessuna discussa in questo passo.
+- Se il filtro non trova niente rispondo 200 con `[]`, non 404: l'elenco esiste, è solo vuoto. Il 404 serve quando manca una risorsa precisa.
+**Alternative scartate:** nessuna, in questo passo non ne ho valutate.
 **Verifica (da `/docs`):** senza filtro 3 macchinari (id 1 e 4 nel reparto 1, id 6 nel reparto 3); `reparto_id=1` → 2 macchinari; `reparto_id=10` → `[]`; `reparto_id=abc` → 422 (`loc: query`). Il primo tentativo non dimostrava il filtro, perché tutti i macchinari erano nel reparto 1 e il risultato sarebbe stato identico anche con un filtro che non filtra; il test è stato rifatto aggiungendo un macchinario nel reparto 3.
 **Errori e correzioni:** `select(reparto_id)` invece di `select(Macchinario)` (si seleziona la classe del modello, non il valore del filtro); `int = None` invece di `int | None = None`.
 **Limiti noti:**
@@ -233,7 +233,7 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 - Per leggere una risorsa precisa l'id va nel percorso (`/macchinari/{macchinario_id}`); `db.get` cerca per chiave primaria. Un id che non esiste è un 404, non un elenco vuoto.
 - Il nome tra graffe nel percorso deve coincidere con il nome del parametro della funzione: FastAPI li collega per nome. Se differiscono, il parametro della funzione diventa un parametro di query obbligatorio e la richiesta risponde 422.
 - A `Depends` si passa la funzione (`Depends(get_db)`), non il suo risultato: FastAPI la chiama a ogni richiesta.
-**Alternative scartate:** nessuna discussa in questo passo.
+**Alternative scartate:** nessuna, in questo passo non ne ho valutate.
 **Verifica (da `/docs`):** id esistente → 200; id 200 (inesistente) → 404 "Macchinario non trovato".
 **Errori e correzioni:** nome nel percorso `{macchinari_id}` diverso dal parametro `macchinario_id`; `Depends(get_db())` con le parentesi.
 **Limiti noti:** il 404 compare in Swagger come "Undocumented": si documenta con `responses=` in fase 2. La lettura sta ancora nella rotta, senza strato servizi né repository.
@@ -248,7 +248,7 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 - `priorita` è obbligatoria nello schema perché la colonna non ha un valore predefinito.
 - Il macchinario si controlla prima con `db.get` (messaggio chiaro, nessun `INSERT` inutile); l'`except IntegrityError` con SQLSTATE `23503` copre il caso in cui il macchinario sparisca tra il controllo e il `commit`, come in `POST /macchinari`.
 - Ogni altro `IntegrityError` viene rilanciato con `raise`: senza, la funzione restituirebbe un guasto mai salvato.
-**Alternative scartate:** nessuna discussa in questo passo.
+**Alternative scartate:** nessuna, in questo passo non ne ho valutate.
 **Verifica (da `/docs`):** dati validi → 201 con `stato` "aperto", `data_segnalazione` valorizzata e `data_chiusura` null; `macchinario_id` 99 → 404; `priorita` "lorenzo" → 500.
 **Errori e correzioni:** schema d'ingresso sbagliato nella firma (`MacchinarioCreazione`); `macchinario_id` mancante in `GuastoLettura`; `db.refresh()` senza argomento; `except` che non rilanciava gli errori diversi da 23503.
 **Limiti noti:**
@@ -262,10 +262,10 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 
 **Decisione:** `GET /guasti` restituisce l'elenco dei guasti, con filtro facoltativo `?macchinario_id=`. Risposta 200 con `list[GuastoLettura]`; senza filtro tutti i guasti, con filtro solo quelli del macchinario indicato.
 **Motivo:**
-- Stesso schema di `GET /macchinari`: il parametro facoltativo si scrive `int | None = None` e la query si costruisce a pezzi (`query = query.where(...)`) ed è eseguita una volta sola alla fine.
+- Faccio come in `GET /macchinari`: il parametro facoltativo è `int | None = None`, la query si costruisce a pezzi (`query = query.where(...)`) e si esegue una volta sola alla fine.
 - Il filtro si applica con `is not None`, non con un controllo di verità: così anche un valore come 0 sarebbe un filtro valido.
-- Un macchinario senza guasti (o inesistente) dà `[]` con 200, non 404: un elenco vuoto è una risposta valida; il 404 è per la singola risorsa che non esiste.
-**Alternative scartate:** nessuna discussa in questo passo.
+- Un macchinario senza guasti (o inesistente) dà `[]` con 200, non 404: un elenco vuoto è una risposta valida, il 404 lo riservo alla singola risorsa che non esiste.
+**Alternative scartate:** nessuna, in questo passo non ne ho valutate.
 **Verifica (da `/docs`):** senza filtro tutti i guasti; `macchinario_id=1` solo i guasti di quel macchinario; `macchinario_id=99` lista vuota.
 **Errori e correzioni:** percorso `/macchinari` al posto di `/guasti` (rotta duplicata); condizione `is None` invertita; `.all` senza parentesi; docstring con la frase invertita.
 **Note:** gli id dei guasti non sono consecutivi (manca il 2): probabile effetto della sequenza di PostgreSQL, che non torna indietro dopo un `INSERT` fallito (ipotesi, non verificata). Non è un errore.
@@ -280,7 +280,7 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 - Il codice dipendente ha un vincolo `UNIQUE` nel database: è lui la garanzia, quindi la rotta non fa un controllo preventivo ma intercetta l'`IntegrityError` al `commit`.
 - Nell'`except` il `rollback` va per primo (rende di nuovo utilizzabile la sessione); poi il codice SQLSTATE `23505` (`UNIQUE`) diventa 409 e ogni altro errore viene rilanciato con `raise`, come in `POST /guasti`.
 - `attivo` non sta nello schema d'ingresso perché nel modello ha `server_default="true"`; sta nello schema di lettura (`bool`), riletto da `db.refresh`.
-**Alternative scartate:** nessuna discussa in questo passo.
+**Alternative scartate:** nessuna, in questo passo non ne ho valutate.
 **Verifica (da `/docs`):** dati validi → 201 con `attivo` true; codice già esistente → 409; `specializzazione` fuori elenco o stringa vuota → 500; `specializzazione` omessa → 201 con `null`.
 **Errori e correzioni:** `id = int` al posto di `id: int`; `from_attributes` mancante; `attivo` nello schema d'ingresso e poi dichiarato `str` invece di `bool`; codice doppio non gestito (500); nell'`except`, `23514` al posto di `23505` e `rollback` dopo l'`if`.
 **Limiti noti:**
@@ -307,12 +307,12 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 
 **Decisione:** `POST /ordini-lavoro` crea un ordine di lavoro e risponde 201 con `OrdineLavoroLettura`. Schema d'ingresso `OrdineLavoroCreazione` (`macchinario_id`, `descrizione`, `guasto_id`, `tecnico_id` e `data_pianificata` facoltativi). Se è indicato un tecnico l'ordine nasce `assegnato`, altrimenti `da_assegnare`. Se un id non esiste risponde 404 "Macchinario, guasto o tecnico non trovato".
 **Motivo:**
-- Lo schema d'ingresso contiene solo ciò che si sa quando l'ordine nasce. `stato` è il ciclo di vita e lo controlla il server: il client non deve poter creare un ordine già completato. `data_creazione` la scrive il database (`server_default now()`). `data_completamento` ed `esito` esistono solo a lavoro finito.
+- Nello schema d'ingresso metto solo quello che si sa quando l'ordine viene creato. `stato` è il ciclo di vita e lo controlla il server: il client non deve poter creare un ordine già completato. `data_creazione` la scrive il database (`server_default now()`). `data_completamento` ed `esito` esistono solo a lavoro finito.
 - La regola dello stato sta nella rotta: un `server_default` è un valore fisso e non può dipendere da un altro campo (`tecnico_id`).
 - Le chiavi esterne sono tre e il codice SQLSTATE `23503` non dice quale è scattata, quindi il messaggio 404 è generico. Le chiavi con valore `NULL` non vengono controllate: un `guasto_id` o `tecnico_id` assente non è un errore.
 - Nell'`except` il `rollback` va per primo; `23503` diventa 404 e ogni altro errore viene rilanciato con `raise`.
 - `OrdineLavoroLettura` ha `from_attributes=True` e i campi facoltativi del modello dichiarati `| None`, altrimenti la risposta darebbe 500.
-**Alternative scartate:** controlli preventivi con `db.get` prima del `db.add` per avere messaggi 404 specifici (rimandati a un passo successivo; non vanno messi dentro l'`except`, dove sarebbero irraggiungibili nel caso utile).
+**Alternative scartate:** controlli preventivi con `db.get` prima del `db.add` per avere messaggi 404 specifici (li ho rimandati a un passo successivo; non vanno messi dentro l'`except`, dove nel caso utile non li raggiungerei mai).
 **Verifica (da `/docs`):** senza tecnico 201 `da_assegnare`; con tecnico 201 `assegnato`; `macchinario_id` inesistente → 404; `tecnico_id` inesistente → 404.
 **Limiti noti:**
 - Si può assegnare un tecnico con `attivo=false`.
@@ -327,11 +327,11 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 
 **Decisione:** prima di scrivere l'ordine, `POST /ordini-lavoro` cerca con `db.get` le entità collegate e risponde con un messaggio specifico: 404 "Macchinario non trovato", 404 "Guasto non trovato", 404 "Tecnico non trovato". Se il guasto appartiene a un macchinario diverso da quello dell'ordine risponde 409 "Il guasto non corrisponde al macchinario".
 **Motivo:**
-- Il codice SQLSTATE `23503` non dice quale delle tre chiavi esterne è scattata; i controlli prima del `db.add` permettono un messaggio preciso. Nell'`except` non è possibile: dopo il `raise` il codice è irraggiungibile nel caso utile.
+- Il codice SQLSTATE `23503` non dice quale delle tre chiavi esterne è scattata; i controlli prima del `db.add` permettono un messaggio preciso. Nell'`except` non si può fare: il codice dopo il `raise` nel caso utile non viene mai eseguito.
 - Il macchinario è obbligatorio e si cerca sempre. Guasto e tecnico sono facoltativi e si cercano solo se l'id è presente: PostgreSQL non controlla una chiave esterna con valore `NULL`.
 - La regola "il guasto appartiene al macchinario dell'ordine" non è garantita dal database (le due chiavi esterne sono indipendenti): è un controllo del codice. 409 perché gli id esistono entrambi ma non sono compatibili.
 - Il `try`/`except IntegrityError` con `23503` → 404 resta come ultima difesa: controllo e scrittura non sono atomici, e se tra il `db.get` e il `commit` un'altra richiesta elimina un'entità (race condition) la chiave esterna fa fallire l'INSERT. Il commento nel codice lo spiega.
-**Alternative scartate:** nessuna discussa in questo passo.
+**Alternative scartate:** nessuna, in questo passo non ne ho valutate.
 **Verifica (da `/docs`):** macchinario inesistente → 404; tecnico inesistente → 404; macchinario 6 con guasto di un altro macchinario → 409; casi validi → 201. Guasto inesistente → 404 provato prima e dopo la modifica. Non provata la race condition.
 **Errori e correzioni:** un `db.get` dentro l'`except` (irraggiungibile); commenti copiati da `POST /guasti` e falsi per questa rotta; controllo del tecnico annidato nell'`if` del guasto, quindi saltato quando `guasto_id` mancava (portato allo stesso livello).
 **Limiti noti:**
