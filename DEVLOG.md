@@ -340,3 +340,23 @@ Diario di sviluppo: per ogni passo annoto la data, cosa ho deciso, perché e cos
 - I controlli stanno nella rotta, senza strato servizi né repository.
 
 **Prossimo passo:** da decidere.
+
+## 2026-11-10 – Elenco degli ordini di lavoro: GET /ordini-lavoro
+
+**Decisione:** `GET /ordini-lavoro` restituisce la lista degli ordini (`list[OrdineLavoroLettura]`) e accetta il parametro facoltativo `stato`: se lo indico, ottengo solo gli ordini con quello stato, altrimenti tutti.
+**Motivo:**
+- Ho seguito la struttura di `GET /guasti` e `GET /tecnici`: parametro di query facoltativo `str | None = None` e `where` aggiunto solo se il parametro c'è.
+- Nell'`if` controllo il parametro (`stato is not None`) e non la colonna: `OrdineLavoro.stato` è un oggetto SQLAlchemy, mai `None`, quindi la condizione sarebbe sempre vera.
+- Senza parametro non applico nessun filtro e restituisco tutti gli ordini.
+**Alternative scartate:** validare `stato` subito con `Literal` o `Enum`, così un valore sconosciuto darebbe 422. Lo rimando alla fase 2, come ho già fatto per la priorità del guasto e la specializzazione del tecnico.
+**Errori e correzioni:**
+- Avevo scritto `stato: str = None`: il tipo giusto è `str | None = None`.
+- L'`if` guardava la colonna invece del parametro.
+- Avevo confrontato lo stato con `("da_assegnare" or "assegnato" or ...)`: in Python l'`or` restituisce il primo valore vero, quindi il confronto era sempre con `"da_assegnare"`. Il confronto giusto è con il valore del parametro.
+**Verifica (da `/docs`):** senza filtro vedo tutti gli ordini; `assegnato` mostra solo quello con il tecnico; `da_assegnare` solo quello senza tecnico; `pippo` restituisce 200 con lista vuota.
+**Limiti noti:**
+- `?stato=pippo` non dà errore: FastAPI vede una `str` e non conosce i valori ammessi, il `CHECK` del database vale solo in scrittura. In fase 2 con `Literal` o `Enum` diventerà 422.
+- Nessun ordinamento né paginazione, come le altre liste.
+- La query sta nella rotta, senza strato servizi né repository.
+
+**Prossimo passo:** da decidere.
