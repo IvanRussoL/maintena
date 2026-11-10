@@ -239,3 +239,13 @@ def crea_ordine_lavoro(dati: OrdineLavoroCreazione, db: Session = Depends(get_db
         raise
     db.refresh(ordine)
     return ordine
+
+@app.get("/ordini-lavoro", response_model=list[OrdineLavoroLettura])
+def elenca_ordini_lavoro(stato: str | None = None, db: Session = Depends(get_db)):
+    """
+    Restituisce gli ordini-lavoro; se stato è indicato, solo quelli con quello stato.
+    """
+    q = select(OrdineLavoro)
+    if stato is not None:
+        q = q.where(OrdineLavoro.stato == stato)
+    return db.scalars(q).all()
