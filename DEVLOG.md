@@ -289,3 +289,16 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 - Controllo e scrittura sono nella rotta, senza strato servizi né repository.
 
 **Prossimo passo:** da decidere.
+
+## 2026-11-10 – Elenco dei tecnici: GET /tecnici
+
+**Decisione:** `GET /tecnici` restituisce i tecnici (`list[TecnicoLettura]`) con un filtro facoltativo `?attivo=true|false`. Senza parametro risponde con **tutti** i tecnici, anche quelli disattivati.
+**Motivo:**
+- `attivo: bool | None = None` rende il parametro di query facoltativo con tre stati: assente (nessun filtro), `true`, `false`. Il filtro si aggiunge con `is not None` e non con `if attivo:`, perché con `if attivo:` il valore `false` verrebbe ignorato.
+- `Tecnico.attivo == attivo` costruisce un'espressione SQL (`WHERE tecnico.attivo = :attivo`), non un booleano: la colonna sta a sinistra. Stessa struttura di `GET /macchinari` e `GET /guasti`.
+- Il default "tutti" è una scelta provvisoria: i tecnici disattivati (soft delete) restano visibili finché non serve altro.
+**Alternative scartate:** mostrare di default solo i tecnici attivi (scartata per ora).
+**Verifica (da `/docs`):** senza filtro 3 tecnici; `attivo=true` gli stessi 3; `attivo=false` lista vuota (nessun tecnico disattivato, quindi il ramo `false` è provato solo sul caso vuoto).
+**Limiti noti:** nessun ordinamento (come le altre liste) né paginazione; la query sta ancora nella rotta, senza strato servizi né repository.
+
+**Prossimo passo:** da decidere.
