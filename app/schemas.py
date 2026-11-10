@@ -82,3 +82,28 @@ class TecnicoLettura(BaseModel):
     cognome: str
     specializzazione: str | None
     attivo: bool 
+
+# ----------------------------------------------------------
+# Ordine-Lavoro
+# ----------------------------------------------------------
+
+class OrdineLavoroCreazione(BaseModel):
+    macchinario_id: int
+    guasto_id: int | None = None
+    tecnico_id: int | None = None
+    descrizione: str
+    data_pianificata: datetime | None = None
+
+class OrdineLavoroLettura(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    macchinario_id: int
+    guasto_id: int | None
+    tecnico_id: int | None
+    descrizione: str
+    stato: str
+    data_creazione: datetime
+    data_pianificata: datetime | None
+    data_completamento: datetime | None
+    esito: str | None

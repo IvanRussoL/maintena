@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
 from app.database import get_db
-from app.models import Reparto, Macchinario, Guasto, Tecnico
-from app.schemas import RepartoLettura, RepartoCreazione, MacchinarioCreazione, MacchinarioLettura, GuastoCreazione, GuastoLettura, TecnicoCreazione, TecnicoLettura
+from app.models import Reparto, Macchinario, Guasto, Tecnico, OrdineLavoro
+from app.schemas import RepartoLettura, RepartoCreazione, MacchinarioCreazione, MacchinarioLettura, GuastoCreazione, GuastoLettura, TecnicoCreazione, TecnicoLettura, OrdineLavoroCreazione, OrdineLavoroLettura
 
 app = FastAPI(title="Maintena")
 
@@ -196,3 +196,28 @@ def lista_tecnici(attivo: bool | None = None, db: Session = Depends(get_db)):
     if attivo is not None:
         q = q.where(Tecnico.attivo == attivo)
     return db.scalars(q).all()
+
+@app.post("/ordini-lavoro", response_model=OrdineLavoroLettura, status_code=201)
+def crea_ordine_lavoro(dati: OrdineLavoroCreazione, db: Session = Depends(get_db)):
+    """
+    Crea un nuovo ordine di lavoro.
+    Se è indicato un tecnico, l'ordine nasce 'assegnato'; altrimenti 'da_assegnare'.
+    """
+    ordine = OrdineLavoro(**dati.model_dump())
+    if ordine.tecnico_id is not None:
+        ordine.stato = "assegnato"
+    db.add(ordine)
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        # SQLSTATE 23503 = chiave esterna violata: uno degli id inviati
+        # (macchinario, guasto o tecnico) non esiste. Gli id assenti (NULL)
+        # non vengono controllati dalla FK, quindi non arrivano qui.
+        if e.orig.sqlstate == "23503":
+            raise HTTPException(status_code=404, detail="Macchinario, guasto o tecnico non trovato")
+        # Ogni altro errore di integrità viene rilanciato: non dovrebbe
+        # succedere, perché lo stato lo impostiamo noi.
+        raise
+    db.refresh(ordine)
+    return ordine
