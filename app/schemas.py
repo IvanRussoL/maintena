@@ -63,6 +63,9 @@ class GuastoCreazione(BaseModel):
     priorita: str
     segnalato_da: str
 
+class GuastoAggiornamentoStato(BaseModel):
+    stato: str
+
 # ----------------------------------------------------------
 # Guasto
 # ----------------------------------------------------------

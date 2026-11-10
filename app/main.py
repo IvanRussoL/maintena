@@ -6,8 +6,17 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
 from app.database import get_db
-from app.models import Reparto, Macchinario, Guasto, Tecnico, OrdineLavoro
-from app.schemas import RepartoLettura, RepartoCreazione, MacchinarioCreazione, MacchinarioLettura, GuastoCreazione, GuastoLettura, TecnicoCreazione, TecnicoLettura, OrdineLavoroCreazione, OrdineLavoroLettura, OrdineLavoroAggiornamentoStato
+from app.models import (
+    Reparto, Macchinario, Guasto, Tecnico, OrdineLavoro
+)
+from app.schemas import (
+    RepartoLettura, RepartoCreazione, 
+    MacchinarioCreazione, MacchinarioLettura, 
+    GuastoCreazione, GuastoLettura, 
+    TecnicoCreazione, TecnicoLettura, 
+    OrdineLavoroCreazione, OrdineLavoroLettura, 
+    OrdineLavoroAggiornamentoStato, GuastoAggiornamentoStato
+)
 
 from datetime import datetime, timezone
 app = FastAPI(title="Maintena")
@@ -162,6 +171,34 @@ def elenca_guasti(macchinario_id: int | None = None, db: Session = Depends(get_d
     if macchinario_id is not None:
         query = query.where(Guasto.macchinario_id == macchinario_id)
     return db.scalars(query).all()
+
+@app.patch("/guasti/{guasto_id}", response_model=GuastoLettura)
+def aggiorna_stato_guasto(guasto_id: int, dati: GuastoAggiornamentoStato, db: Session = Depends(get_db)):
+    """
+    Aggiorna lo stato di un guasto; non si può chiudere se ha ordini di lavoro aperti.
+    """
+    guasto = db.get(Guasto, guasto_id)
+    if guasto is None:
+        raise HTTPException(status_code=404, detail="Guasto non trovato")
+    if dati.stato in ("risolto", "annullato"):
+        q = select(OrdineLavoro).where(
+            OrdineLavoro.guasto_id == guasto_id,
+            OrdineLavoro.stato.not_in(("completato", "annullato")),
+        )
+        if db.scalars(q).first() is not None:
+            raise HTTPException(status_code=409, detail="Il guasto ha ordini di lavoro aperti")
+        guasto.data_chiusura = datetime.now(timezone.utc)
+
+    guasto.stato = dati.stato
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        if e.orig.sqlstate == "23514":
+            raise HTTPException(status_code=422, detail="Stato non valido")
+        raise
+    db.refresh(guasto)
+    return guasto
 
 # ------------------------------------------------------------------
 # Tecnico
