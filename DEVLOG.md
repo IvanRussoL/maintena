@@ -381,3 +381,30 @@ Diario di sviluppo: per ogni passo annoto la data, cosa ho deciso, perché e cos
 - La scrittura sta nella rotta, senza strato servizi né repository.
 
 **Prossimo passo:** da decidere.
+
+## 2026-11-10 – Cambio di stato di un guasto: PATCH /guasti/{id}
+
+**Decisione:** aggiungo `PATCH /guasti/{guasto_id}` per cambiare lo stato di un guasto. Il corpo ha il solo campo `stato`, obbligatorio, in un nuovo schema `GuastoAggiornamentoStato`. Se il guasto non esiste rispondo 404 "Guasto non trovato". Se il nuovo stato è `risolto` o `annullato` cerco gli ordini del guasto che non sono né `completato` né `annullato`: se ne trovo uno rispondo 409 "Il guasto ha ordini di lavoro aperti", altrimenti imposto `data_chiusura` con `datetime.now(timezone.utc)`.
+**Motivo:**
+- Era la regola di coerenza che mi mancava dal passo sugli ordini: il database non sa che un guasto non va chiuso se ha ancora lavoro aperto, quindi lo controllo io prima di scrivere.
+- Il controllo scatta solo in chiusura. Portare un guasto a `in_lavorazione` o `aperto` è sempre permesso.
+- Uso `not_in` per tenere fuori gli ordini finiti e `.first()` perché mi basta sapere se ce n'è almeno uno, non mi serve caricarli tutti.
+- Ho scelto 409 perché la richiesta è valida e il guasto esiste, ma l'operazione è in conflitto con lo stato degli ordini.
+- Conto `annullato` come chiusura: un guasto annullato non deve restare con ordini aperti e ha una data di chiusura come uno risolto.
+- Come per l'ordine, uno stato fuori elenco viene rifiutato dal `CHECK` del database: `rollback` e 422 "Stato non valido" per SQLSTATE `23514`, `raise` per gli altri errori.
+- Ho anche scritto gli import di `main.py` tra parentesi, uno schema per riga: erano diventati troppo lunghi.
+**Alternative scartate:** controllare solo `risolto` e lasciare `annullato` libero. Spostare gli import lunghi in un file a parte lo rimando a quando divido le rotte in router.
+**Errori e correzioni:**
+- Avevo messo `status_code=402` al posto di 422.
+- Lo schema non ereditava da `BaseModel`.
+- La docstring diceva che il guasto non si può aggiornare, mentre si aggiorna sempre: è vietato solo chiuderlo con ordini aperti.
+- Nella condizione sugli ordini avevo confuso l'id del guasto con l'id dell'ordine: `OrdineLavoro.guasto_id` è la colonna dell'ordine che punta al guasto, `guasto_id` è il parametro della rotta.
+**Verifica (da `/docs`):** guasto 1, che ha un ordine aperto, a `risolto`: 409; guasto 3 a `risolto`: 200 con `data_chiusura` valorizzata; guasto 4 a `in_lavorazione`: 200 con `data_chiusura` nulla; stato `pippo`: 422; id 999: 404.
+**Limiti noti:**
+- Un guasto `risolto` che torna `in_lavorazione` mantiene `data_chiusura`: non controllo le transizioni, come per gli ordini.
+- Chiudere di nuovo un guasto già chiuso sovrascrive la data.
+- Tra il controllo degli ordini e il `commit` un altro client potrebbe creare un ordine aperto per lo stesso guasto.
+- `23514` vuol dire un `CHECK` qualsiasi: oggi il messaggio è giusto, in fase 2 lo sostituisce un `Literal` in Pydantic.
+- Controllo e scrittura stanno nella rotta, senza strato servizi né repository.
+
+**Prossimo passo:** da decidere.
