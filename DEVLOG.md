@@ -322,3 +322,21 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 - La scrittura sta nella rotta, senza strato servizi né repository.
 
 **Prossimo passo:** da decidere.
+
+## 2026-11-10 – Controlli preventivi e regola macchinario-guasto in POST /ordini-lavoro
+
+**Decisione:** prima di scrivere l'ordine, `POST /ordini-lavoro` cerca con `db.get` le entità collegate e risponde con un messaggio specifico: 404 "Macchinario non trovato", 404 "Guasto non trovato", 404 "Tecnico non trovato". Se il guasto appartiene a un macchinario diverso da quello dell'ordine risponde 409 "Il guasto non corrisponde al macchinario".
+**Motivo:**
+- Il codice SQLSTATE `23503` non dice quale delle tre chiavi esterne è scattata; i controlli prima del `db.add` permettono un messaggio preciso. Nell'`except` non è possibile: dopo il `raise` il codice è irraggiungibile nel caso utile.
+- Il macchinario è obbligatorio e si cerca sempre. Guasto e tecnico sono facoltativi e si cercano solo se l'id è presente: PostgreSQL non controlla una chiave esterna con valore `NULL`.
+- La regola "il guasto appartiene al macchinario dell'ordine" non è garantita dal database (le due chiavi esterne sono indipendenti): è un controllo del codice. 409 perché gli id esistono entrambi ma non sono compatibili.
+- Il `try`/`except IntegrityError` con `23503` → 404 resta come ultima difesa: controllo e scrittura non sono atomici, e se tra il `db.get` e il `commit` un'altra richiesta elimina un'entità (race condition) la chiave esterna fa fallire l'INSERT. Il commento nel codice lo spiega.
+**Alternative scartate:** nessuna discussa in questo passo.
+**Verifica (da `/docs`):** macchinario inesistente → 404; tecnico inesistente → 404; macchinario 6 con guasto di un altro macchinario → 409; casi validi → 201. Non provati: guasto inesistente e race condition.
+**Errori e correzioni:** un `db.get` dentro l'`except` (irraggiungibile); commenti copiati da `POST /guasti` e falsi per questa rotta; controllo del tecnico annidato nell'`if` del guasto, quindi saltato quando `guasto_id` mancava (portato allo stesso livello).
+**Limiti noti:**
+- Si può assegnare un tecnico con `attivo=false`.
+- La regola macchinario-guasto vale solo alla creazione; non c'è ancora una rotta di aggiornamento.
+- I controlli stanno nella rotta, senza strato servizi né repository.
+
+**Prossimo passo:** da decidere.
