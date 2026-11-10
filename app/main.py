@@ -14,7 +14,9 @@ app = FastAPI(title="Maintena")
 
 @app.get("/")
 def stato():
-    """Controlla che l'applicazione sia attiva."""
+    """
+    Controlla che l'applicazione sia attiva.
+    """
     return {"applicazione": "Maintena", "stato": "attiva"}
 
 
@@ -24,13 +26,16 @@ def stato():
 
 @app.get("/reparti", response_model=list[RepartoLettura])
 def lista_reparti(db: Session = Depends(get_db)):
-    """Restituisce tutti i reparti."""
+    """
+    Restituisce tutti i reparti.
+    """
     return db.scalars(select(Reparto)).all()
 
 
 @app.get("/reparti/{reparto_id}", response_model=RepartoLettura)
 def leggi_reparto(reparto_id: int, db: Session = Depends(get_db)):
-    """Restituisce un reparto dato il suo id.
+    """
+    Restituisce un reparto dato il suo id.
 
     Risponde 404 se il reparto non esiste.
     """
@@ -42,7 +47,8 @@ def leggi_reparto(reparto_id: int, db: Session = Depends(get_db)):
 
 @app.post("/reparti", response_model=RepartoLettura, status_code=201)
 def crea_reparto(dati: RepartoCreazione, db: Session = Depends(get_db)):
-    """Crea un nuovo reparto.
+    """
+    Crea un nuovo reparto.
 
     Risponde 409 se esiste già un reparto con lo stesso nome.
     """
@@ -65,7 +71,8 @@ def crea_reparto(dati: RepartoCreazione, db: Session = Depends(get_db)):
 
 @app.post("/macchinari", response_model=MacchinarioLettura, status_code=201)
 def crea_macchinario(dati: MacchinarioCreazione, db: Session = Depends(get_db)):
-    """Crea un nuovo macchinario in un reparto esistente.
+    """
+    Crea un nuovo macchinario in un reparto esistente.
 
     Risponde 404 se il reparto non esiste e 409 se la matricola è già usata.
     """
@@ -89,7 +96,8 @@ def crea_macchinario(dati: MacchinarioCreazione, db: Session = Depends(get_db)):
 
 @app.get("/macchinari", response_model=list[MacchinarioLettura])
 def elenca_macchinari(reparto_id: int | None = None, db: Session = Depends(get_db)):
-    """Restituisce i macchinari, filtrati per reparto se è indicato `reparto_id`.
+    """
+    Restituisce i macchinari, filtrati per reparto se è indicato `reparto_id`.
 
     Un reparto senza macchinari (o inesistente) restituisce una lista vuota, non 404.
     """
@@ -101,7 +109,8 @@ def elenca_macchinari(reparto_id: int | None = None, db: Session = Depends(get_d
 
 @app.get("/macchinari/{macchinario_id}", response_model=MacchinarioLettura)
 def leggi_macchinario(macchinario_id: int, db: Session = Depends(get_db)):
-    """Restituisce un macchinario dato il suo id.
+    """
+    Restituisce un macchinario dato il suo id.
 
     Risponde 404 se il macchinario non esiste.
     """
@@ -116,7 +125,8 @@ def leggi_macchinario(macchinario_id: int, db: Session = Depends(get_db)):
 
 @app.post("/guasti", response_model=GuastoLettura, status_code=201)
 def crea_guasto(dati: GuastoCreazione, db: Session = Depends(get_db)):
-    """Segnala un nuovo guasto su un macchinario esistente.
+    """
+    Segnala un nuovo guasto su un macchinario esistente.
 
     Lo stato parte da "aperto" e la data di segnalazione la scrive il database.
     Risponde 404 se il macchinario non esiste.
@@ -142,7 +152,8 @@ def crea_guasto(dati: GuastoCreazione, db: Session = Depends(get_db)):
 
 @app.get("/guasti", response_model=list[GuastoLettura])
 def elenca_guasti(macchinario_id: int | None = None, db: Session = Depends(get_db)):
-    """Restituisce i guasti, filtrati per macchinario se è indicato `macchinario_id`.
+    """
+    Restituisce i guasti, filtrati per macchinario se è indicato `macchinario_id`.
 
     Un macchinario senza guasti (o inesistente) restituisce una lista vuota, non 404.
     """
@@ -156,7 +167,8 @@ def elenca_guasti(macchinario_id: int | None = None, db: Session = Depends(get_d
 # ------------------------------------------------------------------
 @app.post("/tecnici", response_model=TecnicoLettura, status_code=201)
 def crea_tecnico(dati: TecnicoCreazione, db: Session = Depends(get_db)):
-    """Crea un nuovo tecnico.
+    """
+    Crea un nuovo tecnico.
     
     Risponde 409 se esiste già un tecnico con lo stesso codice.
     """
@@ -174,3 +186,13 @@ def crea_tecnico(dati: TecnicoCreazione, db: Session = Depends(get_db)):
         raise 
     db.refresh(tecnico)
     return tecnico
+
+@app.get("/tecnici", response_model=list[TecnicoLettura])
+def lista_tecnici(attivo: bool | None = None, db: Session = Depends(get_db)):
+    """
+    Restituisce i tecnici; se 'attivo' è indicato, solo quelli con quello stato.
+    """
+    q = select(Tecnico)
+    if attivo is not None:
+        q = q.where(Tecnico.attivo == attivo)
+    return db.scalars(q).all()
