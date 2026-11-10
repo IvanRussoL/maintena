@@ -302,3 +302,23 @@ Diario delle decisioni di sviluppo: data, decisione, motivo, alternative scartat
 **Limiti noti:** nessun ordinamento (come le altre liste) né paginazione; la query sta ancora nella rotta, senza strato servizi né repository.
 
 **Prossimo passo:** da decidere.
+
+## 2026-11-10 – Creazione di un ordine di lavoro: POST /ordini-lavoro
+
+**Decisione:** `POST /ordini-lavoro` crea un ordine di lavoro e risponde 201 con `OrdineLavoroLettura`. Schema d'ingresso `OrdineLavoroCreazione` (`macchinario_id`, `descrizione`, `guasto_id`, `tecnico_id` e `data_pianificata` facoltativi). Se è indicato un tecnico l'ordine nasce `assegnato`, altrimenti `da_assegnare`. Se un id non esiste risponde 404 "Macchinario, guasto o tecnico non trovato".
+**Motivo:**
+- Lo schema d'ingresso contiene solo ciò che si sa quando l'ordine nasce. `stato` è il ciclo di vita e lo controlla il server: il client non deve poter creare un ordine già completato. `data_creazione` la scrive il database (`server_default now()`). `data_completamento` ed `esito` esistono solo a lavoro finito.
+- La regola dello stato sta nella rotta: un `server_default` è un valore fisso e non può dipendere da un altro campo (`tecnico_id`).
+- Le chiavi esterne sono tre e il codice SQLSTATE `23503` non dice quale è scattata, quindi il messaggio 404 è generico. Le chiavi con valore `NULL` non vengono controllate: un `guasto_id` o `tecnico_id` assente non è un errore.
+- Nell'`except` il `rollback` va per primo; `23503` diventa 404 e ogni altro errore viene rilanciato con `raise`.
+- `OrdineLavoroLettura` ha `from_attributes=True` e i campi facoltativi del modello dichiarati `| None`, altrimenti la risposta darebbe 500.
+**Alternative scartate:** controlli preventivi con `db.get` prima del `db.add` per avere messaggi 404 specifici (rimandati a un passo successivo; non vanno messi dentro l'`except`, dove sarebbero irraggiungibili nel caso utile).
+**Verifica (da `/docs`):** senza tecnico 201 `da_assegnare`; con tecnico 201 `assegnato`; `macchinario_id` inesistente → 404; `tecnico_id` inesistente → 404.
+**Limiti noti:**
+- Si può assegnare un tecnico con `attivo=false`.
+- `data_completamento` non viene impostata da nessuna rotta: servirà una rotta di aggiornamento.
+- Non c'è ancora la regola "il macchinario dell'ordine è quello del guasto".
+- Un `guasto_id` inesistente e un `macchinario_id` inesistente danno lo stesso 404 generico.
+- La scrittura sta nella rotta, senza strato servizi né repository.
+
+**Prossimo passo:** da decidere.
