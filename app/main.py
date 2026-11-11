@@ -1,24 +1,11 @@
-"""Applicazione FastAPI di Maintena: rotte per reparti e macchinari."""
+"""Applicazione FastAPI di Maintena: crea l'app e aggancia i router."""
+from fastapi import FastAPI
 
-from fastapi import FastAPI, Depends, HTTPException
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
 
-from app.database import get_db
-from app.models import (
-    Reparto, Macchinario, Guasto, Tecnico, OrdineLavoro
-)
-from app.schemas import (
-    RepartoLettura, RepartoCreazione, 
-    MacchinarioCreazione, MacchinarioLettura, 
-    GuastoCreazione, GuastoLettura, 
-    TecnicoCreazione, TecnicoLettura, 
-    OrdineLavoroCreazione, OrdineLavoroLettura, 
-    OrdineLavoroAggiornamentoStato, GuastoAggiornamentoStato
+from app.routers import (
+    reparti, macchinari, guasti, tecnici, ordini_lavoro
 )
 
-from datetime import datetime, timezone
 app = FastAPI(title="Maintena")
 
 
@@ -34,277 +21,28 @@ def stato():
 # Reparti
 # ------------------------------------------------------------------
 
-@app.get("/reparti", response_model=list[RepartoLettura])
-def lista_reparti(db: Session = Depends(get_db)):
-    """
-    Restituisce tutti i reparti.
-    """
-    return db.scalars(select(Reparto)).all()
-
-
-@app.get("/reparti/{reparto_id}", response_model=RepartoLettura)
-def leggi_reparto(reparto_id: int, db: Session = Depends(get_db)):
-    """
-    Restituisce un reparto dato il suo id.
-
-    Risponde 404 se il reparto non esiste.
-    """
-    reparto = db.get(Reparto, reparto_id)
-    if reparto is None:
-        raise HTTPException(status_code=404, detail="Reparto non trovato")
-    return reparto
-
-
-@app.post("/reparti", response_model=RepartoLettura, status_code=201)
-def crea_reparto(dati: RepartoCreazione, db: Session = Depends(get_db)):
-    """
-    Crea un nuovo reparto.
-
-    Risponde 409 se esiste già un reparto con lo stesso nome.
-    """
-    reparto = Reparto(nome=dati.nome, descrizione=dati.descrizione)
-    db.add(reparto)
-    try:
-        db.commit()
-    except IntegrityError:
-        # L'unicità del nome la controlla il database (vincolo UNIQUE):
-        # annulliamo la transazione fallita prima di rispondere.
-        db.rollback()
-        raise HTTPException(status_code=409, detail="Esiste già un reparto con questo nome")
-    db.refresh(reparto)  # ricarica id e valori predefiniti assegnati dal database
-    return reparto
-
+app.include_router(reparti.router)
 
 # ------------------------------------------------------------------
 # Macchinari
 # ------------------------------------------------------------------
 
-@app.post("/macchinari", response_model=MacchinarioLettura, status_code=201)
-def crea_macchinario(dati: MacchinarioCreazione, db: Session = Depends(get_db)):
-    """
-    Crea un nuovo macchinario in un reparto esistente.
-
-    Risponde 404 se il reparto non esiste e 409 se la matricola è già usata.
-    """
-    # Controllo esplicito: dà un messaggio chiaro senza tentare l'INSERT.
-    if db.get(Reparto, dati.reparto_id) is None:
-        raise HTTPException(status_code=404, detail="Reparto non trovato")
-    macchinario = Macchinario(**dati.model_dump())
-    db.add(macchinario)
-    try:
-        db.commit()
-    except IntegrityError as e:
-        db.rollback()
-        # SQLSTATE 23503 = chiave esterna violata: il reparto è sparito
-        # tra il controllo sopra e il commit. Altrimenti è la matricola doppia.
-        if e.orig.sqlstate == "23503":
-            raise HTTPException(status_code=404, detail="Reparto non trovato")
-        raise HTTPException(status_code=409, detail="Esiste già un macchinario con questa matricola")
-    db.refresh(macchinario)
-    return macchinario
-
-
-@app.get("/macchinari", response_model=list[MacchinarioLettura])
-def elenca_macchinari(reparto_id: int | None = None, db: Session = Depends(get_db)):
-    """
-    Restituisce i macchinari, filtrati per reparto se è indicato `reparto_id`.
-
-    Un reparto senza macchinari (o inesistente) restituisce una lista vuota, non 404.
-    """
-    query = select(Macchinario)
-    if reparto_id is not None:
-        query = query.where(Macchinario.reparto_id == reparto_id)
-    return db.scalars(query).all()
-
-
-@app.get("/macchinari/{macchinario_id}", response_model=MacchinarioLettura)
-def leggi_macchinario(macchinario_id: int, db: Session = Depends(get_db)):
-    """
-    Restituisce un macchinario dato il suo id.
-
-    Risponde 404 se il macchinario non esiste.
-    """
-    macchinario = db.get(Macchinario, macchinario_id)
-    if macchinario is None:
-        raise HTTPException(status_code=404, detail="Macchinario non trovato")
-    return macchinario
+app.include_router(macchinari.router)
 
 # ------------------------------------------------------------------
 # Guasto
 # ------------------------------------------------------------------
 
-@app.post("/guasti", response_model=GuastoLettura, status_code=201)
-def crea_guasto(dati: GuastoCreazione, db: Session = Depends(get_db)):
-    """
-    Segnala un nuovo guasto su un macchinario esistente.
-
-    Lo stato parte da "aperto" e la data di segnalazione la scrive il database.
-    Risponde 404 se il macchinario non esiste.
-    """
-    # Controllo esplicito: dà un messaggio chiaro senza tentare l'INSERT.
-    if db.get(Macchinario, dati.macchinario_id) is None:
-        raise HTTPException(status_code=404, detail="Macchinario non trovato")
-    guasto = Guasto(**dati.model_dump())
-    db.add(guasto)
-    try:
-        db.commit()
-    except IntegrityError as e:
-        db.rollback()
-        # SQLSTATE 23503 = chiave esterna violata: il macchinario è sparito
-        # tra il controllo sopra e il commit.
-        if e.orig.sqlstate == "23503":
-            raise HTTPException(status_code=404, detail="Macchinario non trovato")
-        # Ogni altro errore (es. 23514, priorità non valida) viene rilanciato
-        # invece di restituire un guasto mai salvato. Validazione in fase 2.
-        raise
-    db.refresh(guasto)
-    return guasto
-
-@app.get("/guasti", response_model=list[GuastoLettura])
-def elenca_guasti(macchinario_id: int | None = None, db: Session = Depends(get_db)):
-    """
-    Restituisce i guasti, filtrati per macchinario se è indicato `macchinario_id`.
-
-    Un macchinario senza guasti (o inesistente) restituisce una lista vuota, non 404.
-    """
-    query = select(Guasto)
-    if macchinario_id is not None:
-        query = query.where(Guasto.macchinario_id == macchinario_id)
-    return db.scalars(query).all()
-
-@app.patch("/guasti/{guasto_id}", response_model=GuastoLettura)
-def aggiorna_stato_guasto(guasto_id: int, dati: GuastoAggiornamentoStato, db: Session = Depends(get_db)):
-    """
-    Aggiorna lo stato di un guasto; non si può chiudere se ha ordini di lavoro aperti.
-    """
-    guasto = db.get(Guasto, guasto_id)
-    if guasto is None:
-        raise HTTPException(status_code=404, detail="Guasto non trovato")
-    if dati.stato in ("risolto", "annullato"):
-        q = select(OrdineLavoro).where(
-            OrdineLavoro.guasto_id == guasto_id,
-            OrdineLavoro.stato.not_in(("completato", "annullato")),
-        )
-        if db.scalars(q).first() is not None:
-            raise HTTPException(status_code=409, detail="Il guasto ha ordini di lavoro aperti")
-        guasto.data_chiusura = datetime.now(timezone.utc)
-
-    guasto.stato = dati.stato
-    try:
-        db.commit()
-    except IntegrityError as e:
-        db.rollback()
-        if e.orig.sqlstate == "23514":
-            raise HTTPException(status_code=422, detail="Stato non valido")
-        raise
-    db.refresh(guasto)
-    return guasto
+app.include_router(guasti.router)
 
 # ------------------------------------------------------------------
 # Tecnico
 # ------------------------------------------------------------------
-@app.post("/tecnici", response_model=TecnicoLettura, status_code=201)
-def crea_tecnico(dati: TecnicoCreazione, db: Session = Depends(get_db)):
-    """
-    Crea un nuovo tecnico.
-    
-    Risponde 409 se esiste già un tecnico con lo stesso codice.
-    """
-    tecnico = Tecnico(**dati.model_dump())
-    db.add(tecnico)
-    try:
-        db.commit()
-    except IntegrityError as e:
-        # annulliamo la transazione fallita prima di rispondere.
-        db.rollback()
-        # L'unicità del codice la controlla il database (vincolo UNIQUE):
-        if e.orig.sqlstate == "23505":
-            raise HTTPException(status_code=409, detail="Esiste già un tecnico con questo codice")
-        # Ogni altro errore (es. 23514, specializzazione non valida) viene rilanciato.
-        raise 
-    db.refresh(tecnico)
-    return tecnico
 
-@app.get("/tecnici", response_model=list[TecnicoLettura])
-def lista_tecnici(attivo: bool | None = None, db: Session = Depends(get_db)):
-    """
-    Restituisce i tecnici; se 'attivo' è indicato, solo quelli con quello stato.
-    """
-    q = select(Tecnico)
-    if attivo is not None:
-        q = q.where(Tecnico.attivo == attivo)
-    return db.scalars(q).all()
+app.include_router(tecnici.router)
 
-@app.post("/ordini-lavoro", response_model=OrdineLavoroLettura, status_code=201)
-def crea_ordine_lavoro(dati: OrdineLavoroCreazione, db: Session = Depends(get_db)):
-    """
-    Crea un nuovo ordine di lavoro.
-    Se è indicato un tecnico, l'ordine nasce 'assegnato'; altrimenti 'da_assegnare'.
-    """
-    ordine = OrdineLavoro(**dati.model_dump())
-    if ordine.tecnico_id is not None:
-        ordine.stato = "assegnato"
-    # Il macchinario è obbligatorio, va sempre cercato
-    macchinario = db.get(Macchinario, ordine.macchinario_id)
-    if macchinario is None:
-        raise HTTPException(status_code=404, detail="Macchinario non trovato")
-    # Il guasto è facoltativo, lo cerchiamo solo se è stato inviato
-    if ordine.guasto_id is not None:
-        guasto = db.get(Guasto, ordine.guasto_id)
-        if guasto is None:
-            raise HTTPException(status_code=404, detail="Guasto non trovato")
-        if ordine.macchinario_id != guasto.macchinario_id:
-            raise HTTPException(status_code=409, detail="Il guasto non corrisponde al macchinario")
-    # Il tecnico è facoltativo, va cercato solo se inviato
-    if ordine.tecnico_id is not None:
-        tecnico = db.get(Tecnico, ordine.tecnico_id)
-        if tecnico is None:
-            raise HTTPException(status_code=404, detail="Tecnico non trovato")
-    db.add(ordine)
-    try:
-        db.commit()
-    except IntegrityError as e:
-        db.rollback()
-        # I controlli sopra coprono il caso normale. Questo blocco resta
-        # come ultima difesa: se tra il db.get e il commit un'altra richiesta
-        # elimina il macchinario, il guasto o il tecnico (race condition),
-        # la FK fa fallire l'INSERT con SQLSTATE 23503 e rispondiamo 404
-        # invece di un 500.
-        if e.orig.sqlstate == "23503":
-            raise HTTPException(status_code=404, detail="Macchinario, guasto o tecnico non trovato")
-        # Ogni altro errore di integrità viene rilanciato: non dovrebbe
-        # succedere, perché lo stato lo impostiamo noi.
-        raise
-    db.refresh(ordine)
-    return ordine
+# ------------------------------------------------------------------
+# Ordine-Lavoro
+# ------------------------------------------------------------------
 
-@app.get("/ordini-lavoro", response_model=list[OrdineLavoroLettura])
-def elenca_ordini_lavoro(stato: str | None = None, db: Session = Depends(get_db)):
-    """
-    Restituisce gli ordini-lavoro; se stato è indicato, solo quelli con quello stato.
-    """
-    q = select(OrdineLavoro)
-    if stato is not None:
-        q = q.where(OrdineLavoro.stato == stato)
-    return db.scalars(q).all()
-
-@app.patch("/ordini-lavoro/{ordine_id}", response_model=OrdineLavoroLettura)
-def aggiorna_stato_ordine(ordine_id: int, dati: OrdineLavoroAggiornamentoStato, db: Session = Depends(get_db)):
-    """
-    Aggiorna lo stato di un ordine di lavoro.
-    """
-    ordine = db.get(OrdineLavoro, ordine_id)
-    if ordine is None:
-        raise HTTPException(status_code=404, detail="L'ordine non esiste")
-    ordine.stato = dati.stato
-    if ordine.stato == "completato":
-        ordine.data_completamento = datetime.now(timezone.utc)
-    try:
-        db.commit()
-    except IntegrityError as e:
-        db.rollback()
-        if e.orig.sqlstate == "23514":
-            raise HTTPException(status_code=422, detail="Stato non valido")
-        raise
-    db.refresh(ordine)
-    return ordine
+app.include_router(ordini_lavoro.router)
