@@ -408,3 +408,26 @@ Diario di sviluppo: per ogni passo annoto la data, cosa ho deciso, perché e cos
 - Controllo e scrittura stanno nella rotta, senza strato servizi né repository.
 
 **Prossimo passo:** da decidere.
+
+## 2026-11-11 – Divisione delle rotte in router (`APIRouter`)
+
+**Decisione:** sposto le rotte da `app/main.py` in cinque file dentro `app/routers/`: `reparti.py`, `macchinari.py`, `guasti.py`, `tecnici.py` e `ordini_lavoro.py`. Ogni file ha il suo `APIRouter(prefix=..., tags=[...])`; `main.py` resta con l'app, `GET /` e cinque `include_router`. È un refactoring puro: gli URL e le risposte sono quelli di prima. Ho fatto un solo commit per tutto, ma ho riprovato le rotte dopo ogni router che spostavo.
+**Motivo:**
+- In `main.py` c'erano tutte e quindici le rotte con un import lunghissimo: trovare una rotta era diventato scomodo. Ora ogni argomento ha il suo file e l'import di `main.py` si riduce ai cinque router.
+- Il prefisso lo scrivo una volta sola nel router (`prefix="/reparti"`), quindi nelle rotte il percorso è `""` oppure `"/{reparto_id}"`. I `tags` raggruppano le rotte per argomento in `/docs`.
+- Non ho import circolari: `main.py` importa i router, i router importano `models`, `schemas` e `database`, e nessuno importa `main.py`. Ci riesco perché `get_db` sta già in `app/database.py`.
+- Il file si chiama `ordini_lavoro.py` (un nome Python non può avere il trattino), l'URL resta `/ordini-lavoro`.
+**Alternative scartate:** lasciare tutto in `main.py`; fare un commit per ogni router (per un refactoring che non cambia il comportamento ne basta uno); dividere subito anche in servizi e repository. I router sono solo il primo dei quattro strati: la logica sta ancora dentro le rotte.
+**Errori e correzioni:**
+- Nel primo router avevo scritto `prefix="/reparto"` e l'URL cambiava.
+- In alcuni file avevo lasciato `@app` al posto di `@router`.
+- Avevo scritto `include_router()` senza dire quale router.
+- Avevo tolto da `main.py` l'import di `Reparto`, ma `POST /macchinari` lo usava: risposta 500.
+- In `ordini_lavoro.py` mancava l'import di `Tecnico`: altro 500.
+- Mi era sparita `GET /`.
+**Verifica:** dopo ogni router ho riprovato da `/docs` le rotte spostate, controllando che gli URL fossero gli stessi di prima.
+**Limiti noti:**
+- Le rotte contengono ancora query, regole e scrittura: servizi e repository non esistono.
+- I nomi delle funzioni sono incoerenti (`lista_reparti` e `lista_tecnici`, ma `elenca_...` altrove).
+
+**Prossimo passo:** da decidere.
