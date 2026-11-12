@@ -452,3 +452,20 @@ Diario di sviluppo: per ogni passo annoto la data, cosa ho deciso, perché e cos
 - Non ci sono ancora test automatici, né utenti di test (arrivano con l'autenticazione, fase 2).
 
 **Prossimo passo:** da decidere.
+
+## 2026-11-12 – Chiusura della fase 1
+
+**Decisione:** chiudo la fase 1 (gestionale) con quindici rotte funzionanti, il piano di test e la documentazione pubblica. Gli strati servizi e repository, le regole sulle transizioni di stato e la validazione con `Literal` passano alla fase 2.
+**Motivo:**
+- Servizi e repository sono un lavoro di qualità del codice, non di funzionalità: ha più senso farli insieme ai test automatici e alla validazione in ingresso, che li useranno.
+- Le transizioni di stato (un ordine `completato` che torna `da_assegnare`, un guasto riaperto che conserva `data_chiusura`) vanno prima progettate. Oggi sono limiti noti e documentati in `docs/PIANO_TEST.md` (`TC-G14`, `TC-O17`).
+**Cosa ho aggiunto per chiudere:**
+- `README.md`: cos'è il progetto, stato per fasi, installazione, rotte, struttura e limiti noti.
+- `docs/PROGETTAZIONE.md`: requisiti, regole di business, modello dei dati, scelte con l'alternativa scartata e scelte rinviate alla fase 2.
+- `requirements.txt` ridotto alle quattro dipendenze dirette (`fastapi[standard]`, `SQLAlchemy`, `psycopg[binary]`, `python-dotenv`), che prima erano un `pip freeze` di una sessantina di righe. L'ho provato in un ambiente virtuale nuovo: l'app parte e `/docs` si apre.
+- `.gitattributes` con `* text=auto eol=lf`: salvando `app/schemas.py` per correggere un commento l'editor aveva trasformato le righe a capo da LF a CRLF e `git diff` segnava 228 righe cambiate invece di una. Con questo file il repository tiene sempre LF, qualunque editor si usi.
+- In `app/schemas.py` il commento di sezione dei tecnici diceva `# Guasto`: ora dice `# Tecnico`.
+**Alternative scartate:** impostare solo l'editor su LF o usare `core.autocrlf` (sono impostazioni locali, `.gitattributes` vale per chiunque cloni il repository); aspettare di fare servizi e repository prima di chiudere la fase (la tabella delle fasi non li colloca nella fase 1).
+**Limiti noti:** quelli elencati nel README e nella sezione 8 di `docs/PROGETTAZIONE.md`; non ho ancora test automatici né autenticazione.
+
+**Prossimo passo:** fase 2 (qualità e sicurezza): da decidere da dove cominciare.
