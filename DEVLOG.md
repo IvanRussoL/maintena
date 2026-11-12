@@ -431,3 +431,24 @@ Diario di sviluppo: per ogni passo annoto la data, cosa ho deciso, perché e cos
 - I nomi delle funzioni sono incoerenti (`lista_reparti` e `lista_tecnici`, ma `elenca_...` altrove).
 
 **Prossimo passo:** da decidere.
+
+## 2026-11-12 – Piano di test dell'API (`docs/PIANO_TEST.md`)
+
+**Decisione:** scrivo il piano di test delle quindici rotte in `docs/PIANO_TEST.md`, nel formato a cinque sezioni che uso per i piani di test: ambiente, casi manuali, test automatici, note per il tester, tracciamento degli esiti. I casi manuali sono 60, divisi per area (`TC-A` applicazione, `TC-R` reparti, `TC-M` macchinari, `TC-T` tecnici, `TC-G` guasti, `TC-O` ordini di lavoro), ciascuno con precondizione, passi e risultato atteso con il codice HTTP reale. La sezione dei test automatici è per ora vuota: arrivano con pytest in fase 2.
+**Motivo:**
+- Finora ho provato ogni rotta da `/docs` mentre la scrivevo, ma le prove stavano solo nei miei appunti. Così diventano una specifica scritta, che posso rieseguire dopo ogni modifica e che userò come punto di partenza per i test automatici: ogni caso ha un codice che potrà comparire nel nome del test.
+- Il piano descrive il comportamento di oggi, non quello definitivo. Dove oggi c'è un limite noto, il caso lo dice (`TC-G04`, `TC-T05`, `TC-O11`, `TC-G14`, `TC-O17`) e quando il comportamento cambia va riscritto.
+- Prima di scrivere gli attesi li ho riletti sul codice delle rotte e riprovati su un database PostgreSQL di prova, con dati inventati.
+**Alternative scartate:** scrivere subito solo i test con pytest, togliendo i casi manuali: i casi manuali mi servono come specifica da cui scrivere i test e, a pytest pronto, ne tengo solo un piccolo elenco di controllo veloce. Tenere i casi solo nei miei appunti.
+**Cose emerse scrivendo il piano:**
+- Una priorità di guasto o una specializzazione di tecnico non valide (anche la stringa vuota) producono un 500: il `CHECK` del database le rifiuta e nessuna rotta traduce l'errore.
+- `GET /ordini-lavoro?stato=...` con uno stato inesistente risponde 200 con elenco vuoto.
+- Un ordine che torna da `completato` a `da_assegnare` mantiene `data_completamento`, e un nuovo completamento la sovrascrive; un guasto riaperto mantiene `data_chiusura`.
+- Un inserimento fallito (409 o 500) consuma comunque un numero della sequenza degli id: dopo i casi negativi gli id non sono consecutivi, ed è normale.
+- Per provare `?attivo=false` bisogna modificare un tecnico direttamente nel database di test, perché non esiste una rotta per disattivarlo.
+**Verifica:** attesi riletti sul codice e riprovati su una copia con dati inventati; le prove manuali su ogni rotta le ho fatte durante lo sviluppo e nella tabella degli esiti i 60 casi risultano PASS. Non ho provato i rami di errore che scattano solo se un record sparisce tra il controllo e il `commit` (race condition).
+**Limiti noti:**
+- Il piano non ha ancora data e ora né riferimenti ai dati per le prove già fatte: la tabella degli esiti si compila per intero dalla prossima sessione.
+- Non ci sono ancora test automatici, né utenti di test (arrivano con l'autenticazione, fase 2).
+
+**Prossimo passo:** da decidere.
