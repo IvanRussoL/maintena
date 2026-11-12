@@ -1,0 +1,2 @@
+# Fine riga: nel repository sempre LF, qualunque sia il sistema o l'editor
+* text=auto eol=lf
