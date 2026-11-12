@@ -67,7 +67,7 @@ class GuastoAggiornamentoStato(BaseModel):
     stato: str
 
 # ----------------------------------------------------------
-# Guasto
+# Tecnico
 # ----------------------------------------------------------
 
 class TecnicoCreazione(BaseModel):
