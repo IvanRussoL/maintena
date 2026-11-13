@@ -1,0 +1,3 @@
+# Dipendenze per lo sviluppo e i test (include quelle dell'app)
+-r requirements.txt
+pytest==9.2.0
