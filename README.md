@@ -29,6 +29,12 @@ pip install -r requirements.txt
 
 Su Linux e macOS l'ambiente virtuale si attiva con `source venv/bin/activate`.
 
+Per eseguire anche i test si installa `requirements-dev.txt`, che include `requirements.txt` e aggiunge pytest:
+
+```powershell
+pip install -r requirements-dev.txt
+```
+
 ## Configurazione
 
 Copia `.env.example` in `.env` e imposta l'indirizzo del database:
@@ -44,6 +50,22 @@ Crea le tabelle:
 ```powershell
 python crea_tabelle.py
 ```
+
+## Test
+
+I test usano un database PostgreSQL separato, che le fixture riempiono e svuotano a ogni test: non va usato quello dell'applicazione. Crea un database vuoto (per esempio `maintena_test`) e aggiungi a `.env` il suo indirizzo:
+
+```
+TEST_DATABASE_URL=postgresql+psycopg://utente:password@localhost:5432/maintena_test
+```
+
+Poi, dalla radice del progetto:
+
+```powershell
+python -m pytest -v
+```
+
+Per ora c'è un solo test automatico (creazione di un reparto); gli altri casi sono descritti in [docs/PIANO_TEST.md](docs/PIANO_TEST.md) e vanno ancora trasformati in test.
 
 ## Avvio
 
@@ -85,15 +107,16 @@ app/
 ├── schemas.py       schemi Pydantic
 └── routers/         reparti, macchinari, guasti, tecnici, ordini_lavoro
 docs/
-├── PIANO_TEST.md    casi di test manuali
+├── PIANO_TEST.md    casi di test
 └── PROGETTAZIONE.md scelte di progetto
+tests/               test automatici (pytest)
 crea_tabelle.py      crea le tabelle
 DEVLOG.md            diario delle decisioni
 ```
 
 ## Roadmap
 
-- Validazione in ingresso (422), autenticazione, strati servizi e repository, test automatici con pytest
+- Fase 2 (in corso): test automatici con pytest (infrastruttura pronta), strati servizi e repository, validazione in ingresso (422), transizioni di stato, autenticazione
 - Ricerca nei manuali tecnici (RAG con pgvector e citazione delle fonti)
 - Agente (LangGraph) che propone interventi e chiede conferma prima di modificare i dati
 - Docker e CI

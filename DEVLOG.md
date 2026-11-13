@@ -469,3 +469,18 @@ Diario di sviluppo: per ogni passo annoto la data, cosa ho deciso, perché e cos
 **Limiti noti:** quelli elencati nel README e nella sezione 8 di `docs/PROGETTAZIONE.md`; non ho ancora test automatici né autenticazione.
 
 **Prossimo passo:** fase 2 (qualità e sicurezza): da decidere da dove cominciare.
+
+## 2026-11-13 – Fase 2: infrastruttura dei test con pytest
+
+**Decisione:** apro la fase 2 con i test automatici, prima di toccare la struttura del codice. Ho aggiunto pytest, un database di test separato e un primo test sul reparto (`TC-R02`).
+**Motivo:** i prossimi passi (servizi e repository, validazione con `Literal`, transizioni di stato) cambiano molto codice. Con i test già pronti vedo subito se rompo qualcosa che prima funzionava.
+**Cosa ho fatto:**
+- Creato un database PostgreSQL vuoto, `maintena_test`, e aggiunta la variabile `TEST_DATABASE_URL`.
+- `requirements-dev.txt` con `-r requirements.txt` e `pytest==9.2.0`, così `requirements.txt` resta con le sole dipendenze dell'app.
+- `tests/conftest.py`: una fixture `db` che crea le tabelle prima di ogni test e le cancella dopo, e una fixture `client` che usa `TestClient` e sostituisce `get_db` con la sessione di test (`dependency_overrides`).
+- `tests/test_reparti.py` con `test_TC_R02_crea_reparto`: `POST /reparti` con un nome valido risponde 201. Il codice `TC-R02` nel nome rimanda al caso in `docs/PIANO_TEST.md`.
+**Errore che ho fatto:** avevo scritto `dependency_overrides[db]` invece di `dependency_overrides[get_db]`: le rotte avrebbero scritto nel database vero. Dopo il test ho controllato con pgAdmin che in `maintena` non ci fosse la riga creata.
+**Alternative scartate:** SQLite in memoria (veloce, ma `CHECK`, chiavi esterne `RESTRICT` e codici SQLSTATE di PostgreSQL non si comportano allo stesso modo); un commit unico con tutti i 60 casi (preferisco un commit per risorsa).
+**Limiti noti:** per ora un solo test; gli altri casi del piano sono ancora da scrivere.
+
+**Prossimo passo:** trasformare in test automatici i casi `TC-R` dei reparti.
