@@ -521,15 +521,45 @@ Convenzioni: `{id}` indica l'identificativo restituito dalla creazione del recor
 
 ## 3. Test automatici
 
-Non ancora presenti. I test automatici con pytest sono previsti nella fase 2 (qualità e sicurezza) e verranno descritti in questa sezione, un file di test alla volta, nel formato seguente.
+I test automatici usano pytest e si trovano nella cartella `tests/`. Ogni test ha nel nome il codice del caso manuale della sezione 2 che verifica (per esempio `test_TC_R04_nome_doppio` per `TC-R04`). Non sostituiscono i casi manuali: li ripetono in modo veloce e ripetibile; quelli non ancora automatizzati restano solo manuali.
 
-File: `tests/test_xxx.py`
+**Come si lanciano.** Dalla cartella del repository, con l'ambiente virtuale attivo e le dipendenze di sviluppo installate (`pip install -r requirements-dev.txt`):
+
+```
+python -m pytest -v                      # tutti i test
+python -m pytest tests/test_reparti.py -v   # un solo file
+```
+
+Si usa `python -m pytest` e non `pytest` da solo, così la cartella corrente entra nel percorso di import e `from app...` funziona.
+
+**Ambiente.** I test non usano il database di sviluppo: hanno un database PostgreSQL separato, `maintena_test`, indicato dalla variabile `TEST_DATABASE_URL` del file `.env` (esempio in `.env.example`). Il database di test deve esistere ed essere vuoto; le tabelle le crea il test. Servono solo dati inventati.
+
+### `tests/conftest.py`
+
+Configurazione condivisa, letta da pytest prima dei test. Contiene:
+
+| Elemento | Scopo |
+|---|---|
+| `engine_test`, `SessionTest` | Connessione e sessioni verso `maintena_test`, separate da quelle dell'applicazione |
+| fixture `db` | Prima di ogni test crea le tabelle; dopo (anche se il test fallisce) le elimina: ogni test parte da un database vuoto |
+| fixture `client` | `TestClient` di FastAPI che chiama le rotte senza avviare il server; sostituisce la dipendenza `get_db` con la sessione di test (`dependency_overrides`) e a fine test ripristina l'applicazione |
+
+### `tests/test_reparti.py`
+
+Funzione di appoggio `crea_reparto(client, nome, descrizione=None)`: crea un reparto con `POST /reparti`.
 
 | Test | Scenario |
 |---|---|
-| `nome_test_che_descrive_la_regola` | Condizione → risultato atteso |
+| `test_TC_R01_elenco_vuoto` | Database vuoto → `GET /reparti` risponde 200 con `[]` |
+| `test_TC_R02_crea_reparto` | `POST /reparti` con solo il nome → 201, `id` presente, `descrizione` assente (`None`), il reparto compare in `GET /reparti` |
+| `test_TC_R03_crea_reparto_con_descrizione` | `POST /reparti` con nome e descrizione "Linea 2" → 201 e descrizione restituita |
+| `test_TC_R04_nome_doppio` | Secondo `POST /reparti` con lo stesso nome → 409 con `detail`; in elenco resta un solo reparto |
+| `test_TC_R05_reparto_senza_nome` | `POST /reparti` con corpo `{}` → 422; nessun reparto creato |
+| `test_TC_R06_leggi_reparto_per_id` | `GET /reparti/{id}` con l'id restituito dalla creazione → 200 e nome corretto |
+| `test_TC_R07_reparto_inesistente` | `GET /reparti/999999` su database vuoto → 404 |
+| `test_TC_R08_id_non_numerico` | `GET /reparti/abc` → 422 |
 
-Fino ad allora la verifica è solo manuale, con i casi della sezione 2.
+Gli altri gruppi (macchinari, tecnici, guasti, ordini di lavoro) non hanno ancora test automatici: per loro la verifica è solo manuale, con i casi della sezione 2.
 
 ## 4. Note per il tester
 
@@ -583,7 +613,8 @@ Per ogni caso eseguito, registrare:
 
 In caso di **FAIL** indicare sempre: richiesta esatta, risposta ricevuta (codice e corpo), eventuali errori nei log.
 
-Tabella degli esiti. Le prove manuali sono state eseguite durante lo sviluppo di ciascuna rotta; data e ora e riferimenti ai dati non sono stati registrati. Da compilare per intero a ogni sessione successiva:
+Tabella degli esiti. Le prove manuali sono state eseguite durante lo sviluppo di ciascuna rotta; data e ora e riferimenti ai dati non sono stati registrati. Da compilare per intero a ogni sessione successiva. **Nota:** `TC-R01`..`TC-R08` sono coperti anche dai test automatici di `tests/test_reparti.py` (sezione 3).
+
 
 | ID test | Esito | Data e ora | Evidenza | Errori | Riferimento ai dati | Note |
 |---|---|---|---|---|---|---|

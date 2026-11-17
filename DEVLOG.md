@@ -484,3 +484,19 @@ Diario di sviluppo: per ogni passo annoto la data, cosa ho deciso, perché e cos
 **Limiti noti:** per ora un solo test; gli altri casi del piano sono ancora da scrivere.
 
 **Prossimo passo:** trasformare in test automatici i casi `TC-R` dei reparti.
+
+## 2026-11-17 – Fase 2: test automatici dei reparti
+
+**Decisione:** trasformo in test automatici gli otto casi `TC-R01..R08` del piano di test e li tengo con lo stesso codice nel nome (`test_TC_R04_nome_doppio`), così si ritrova subito il caso in `docs/PIANO_TEST.md`.
+**Motivo:** i prossimi passi cambiano molto codice (servizi e repository, validazione, transizioni di stato). Con i test dei reparti già pronti, ogni modifica si controlla con un comando.
+**Cosa ho fatto:**
+- `tests/test_reparti.py`: una funzione di appoggio `crea_reparto` e otto test: elenco vuoto, creazione con e senza descrizione, nome doppio (409 e un solo reparto in elenco), corpo vuoto (422), lettura per id, id inesistente (404), id non numerico (422).
+- Ho tolto da `tests/conftest.py` un commento che non serviva.
+**Errore che ho fatto:** lanciando `pytest` da solo ottenevo `ModuleNotFoundError: No module named 'app'`, perché pytest aggiunge al percorso solo la cartella `tests/`. Con `python -m pytest tests/test_reparti.py -v` la cartella corrente è nel percorso e i test partono (8 passed).
+**Alternative scartate:** aggiungere un `pytest.ini` con `pythonpath = .` (un file in più per un problema che il comando risolve); un test per più casi insieme (se fallisce non so quale caso del piano si è rotto).
+**Limiti noti:**
+- I test di questi casi fotografano il comportamento di oggi: per esempio un nome reparto `""` viene accettato. Quando correggerò i limiti noti, i test andranno riscritti.
+- Mancano i test degli altri gruppi (macchinari, tecnici, guasti, ordini di lavoro).
+- Per provare i test serve un database `maintena_test` raggiungibile con `TEST_DATABASE_URL`.
+
+**Prossimo passo:** test automatici dei macchinari (casi `TC-M`).
