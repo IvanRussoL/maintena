@@ -12,7 +12,7 @@ from app.main import app                    # l'applicazione FastAPI da testare
 from app.database import Base, get_db       # Base: elenco delle tabelle; get_db: la dipendenza da sostituire
 from app import models  # ci serve solo a "registrare" le tabelle in Base.metadata
 
-load_dotenv()                               # legge .env, dove c'è TEST_DATABASE_URL
+load_dotenv()                              
 # Secondo motore, separato da quello dell'app: punta al database maintena_test.
 engine_test = create_engine(os.getenv("TEST_DATABASE_URL"))
 # Fabbrica di sessioni legate al database di test.
