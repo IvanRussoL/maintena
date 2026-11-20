@@ -559,7 +559,26 @@ Funzione di appoggio `crea_reparto(client, nome, descrizione=None)`: crea un rep
 | `test_TC_R07_reparto_inesistente` | `GET /reparti/999999` su database vuoto → 404 |
 | `test_TC_R08_id_non_numerico` | `GET /reparti/abc` → 422 |
 
-Gli altri gruppi (macchinari, tecnici, guasti, ordini di lavoro) non hanno ancora test automatici: per loro la verifica è solo manuale, con i casi della sezione 2.
+### `tests/test_macchinari.py`
+
+Due funzioni di appoggio: `crea_reparto(client, nome="Stampaggio")` e `crea_macchinario(client, matricola, reparto_id, nome="Pressa")`; entrambe creano la risorsa con la rotta `POST` e restituiscono l'`id`.
+
+| Test | Scenario |
+|---|---|
+| `test_TC_M01_crea_macchinario_campi_obbligatori` | `POST /macchinari` con matricola, nome e reparto → 201, `stato` "attivo", `modello` e `descrizione` `None` |
+| `test_TC_M02_crea_macchinario_con_stato` | `POST /macchinari` con `stato` "fermo" → 201 e stato "fermo" |
+| `test_TC_M03_matricola_duplicata` | Secondo `POST` con la stessa matricola → 409 con `detail` "Esiste già un macchinario con questa matricola"; in elenco ne resta uno |
+| `test_TC_M04_reparto_inesistente` | `POST` con `reparto_id` 999999 → 404 "Reparto non trovato" |
+| `test_TC_M05_stato_non_valido` | `POST` con `stato` "rotto" → 422; `stato` tra i campi in errore |
+| `test_TC_M06_campi_obbligatori_mancanti` | `POST` con la sola matricola → 422; `nome` e `reparto_id` tra i campi in errore |
+| `test_TC_M07_elenco_macchinari` | Due macchinari creati → `GET /macchinari` 200; le matricole, ordinate, sono "M-1" e "M-2" |
+| `test_TC_M08_filtro_per_reparto` | Due reparti con un macchinario ciascuno → `GET /macchinari?reparto_id={A}` 200 con la sola matricola del reparto A |
+| `test_TC_M09_filtro_reparto_vuoto_o_inesistente` | Filtro su un reparto senza macchinari e su 999999 → 200 e `[]` in entrambi i casi |
+| `test_TC_M10_filtro_reparto_non_numerico` | `GET /macchinari?reparto_id=abc` → 422 |
+| `test_TC_M11_lettura_macchinario_tramite_id` | `GET /macchinari/{id}` → 200 con `id`, `matricola` e `reparto_id` corretti |
+| `test_TC_M12_lettura_macchinario_inesistente_o_id_non_numerico` | `GET /macchinari/999999` → 404 "Macchinario non trovato"; `GET /macchinari/abc` → 422 |
+
+Gli altri gruppi (tecnici, guasti, ordini di lavoro) non hanno ancora test automatici: per loro la verifica è solo manuale, con i casi della sezione 2.
 
 ## 4. Note per il tester
 
@@ -613,7 +632,7 @@ Per ogni caso eseguito, registrare:
 
 In caso di **FAIL** indicare sempre: richiesta esatta, risposta ricevuta (codice e corpo), eventuali errori nei log.
 
-Tabella degli esiti. Le prove manuali sono state eseguite durante lo sviluppo di ciascuna rotta; data e ora e riferimenti ai dati non sono stati registrati. Da compilare per intero a ogni sessione successiva. **Nota:** `TC-R01`..`TC-R08` sono coperti anche dai test automatici di `tests/test_reparti.py` (sezione 3).
+Tabella degli esiti. Le prove manuali sono state eseguite durante lo sviluppo di ciascuna rotta; data e ora e riferimenti ai dati non sono stati registrati. Da compilare per intero a ogni sessione successiva. **Nota:** `TC-R01`..`TC-R08` e `TC-M01`..`TC-M12` sono coperti anche dai test automatici di `tests/test_reparti.py` e `tests/test_macchinari.py` (sezione 3).
 
 
 | ID test | Esito | Data e ora | Evidenza | Errori | Riferimento ai dati | Note |

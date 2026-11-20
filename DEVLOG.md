@@ -500,3 +500,21 @@ Diario di sviluppo: per ogni passo annoto la data, cosa ho deciso, perché e cos
 - Per provare i test serve un database `maintena_test` raggiungibile con `TEST_DATABASE_URL`.
 
 **Prossimo passo:** test automatici dei macchinari (casi `TC-M`).
+
+## 2026-11-20 – Fase 2: test automatici dei macchinari
+
+**Decisione:** trasformo in test automatici i dodici casi `TC-M01..M12` del piano di test, con lo stesso criterio dei reparti: un test per caso, con il codice del caso nel nome (`test_TC_M03_matricola_duplicata`).
+**Motivo:** i macchinari hanno più regole dei reparti (reparto che deve esistere, matricola unica, stato ammesso, filtro per reparto). Con i test pronti, quando farò servizi e repository vedo subito se ne rompo una.
+**Cosa ho fatto:**
+- `tests/test_macchinari.py`: due funzioni di appoggio, `crea_reparto` e `crea_macchinario` (restituiscono l'id), e dodici test: creazione con i soli campi obbligatori (stato "attivo" di default) e con stato indicato; matricola doppia (409 e un solo macchinario); reparto inesistente (404); stato non valido e campi mancanti (422); elenco; filtro per reparto, anche su reparto vuoto o inesistente (200 e lista vuota); filtro non numerico (422); lettura per id, id inesistente (404) e non numerico (422).
+- Negli elenchi confronto le matricole dopo averle ordinate con `sorted()`, perché la rotta non ordina i risultati.
+**Errori che ho fatto:**
+- Ho provato a leggere un macchinario con `params={"id": ...}`: diventa `/macchinari?id=1`, che arriva alla rotta dell'elenco; la rotta ignora il parametro e risponde 200 con tutta la lista. L'id va nell'indirizzo (`f"/macchinari/{macchinario_id}"`), perché nella rotta è un parametro di percorso; `params=` si usa solo per i filtri.
+- Una chiave sbagliata (`"matricole"` invece di `"matricola"`), un confronto senza `.status_code` e un testo di errore diverso da quello della rotta (`"Macchinario non trovato"`).
+**Alternative scartate:** nessuna nuova rispetto ai reparti (stessi helper basati sulle rotte vere, un caso del piano per test).
+**Limiti noti:**
+- Anche questi test fotografano il comportamento di oggi e andranno riscritti se cambiano le regole.
+- Il test del filtro su un reparto senza macchinari (`TC-M09`) non crea macchinari in altri reparti: da solo non dimostra che il filtro funzioni (lo fa `TC-M08`).
+- Mancano i test degli altri gruppi (tecnici, guasti, ordini di lavoro).
+
+**Prossimo passo:** test automatici dei tecnici (casi `TC-T`).
