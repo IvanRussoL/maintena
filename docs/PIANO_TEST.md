@@ -578,7 +578,24 @@ Due funzioni di appoggio: `crea_reparto(client, nome="Stampaggio")` e `crea_macc
 | `test_TC_M11_lettura_macchinario_tramite_id` | `GET /macchinari/{id}` → 200 con `id`, `matricola` e `reparto_id` corretti |
 | `test_TC_M12_lettura_macchinario_inesistente_o_id_non_numerico` | `GET /macchinari/999999` → 404 "Macchinario non trovato"; `GET /macchinari/abc` → 422 |
 
-Gli altri gruppi (tecnici, guasti, ordini di lavoro) non hanno ancora test automatici: per loro la verifica è solo manuale, con i casi della sezione 2.
+### `tests/test_tecnici.py`
+
+Una funzione di appoggio: `crea_tecnico(client, codice, nome="Luca", cognome="Rossi", specializzazione=None)` crea un tecnico con `POST /tecnici` (la chiave `specializzazione` è nel corpo solo se indicata) e restituisce il corpo della risposta.
+
+| Test | Scenario |
+|---|---|
+| `test_TC_T01_crea_tecnico_con_specializzazione` | `POST /tecnici` con codice "T1" e specializzazione "meccanica" → 201, `attivo` `True`, specializzazione "meccanica" |
+| `test_TC_T02_crea_tecnico_senza_specializzazione` | `POST` senza `specializzazione` → 201, `specializzazione` `None`, `attivo` `True` |
+| `test_TC_T03_codice_dipendente_duplicato` | Secondo `POST` con lo stesso codice → 409 con `detail` "Esiste già un tecnico con questo codice"; in elenco ne resta uno |
+| `test_TC_T04_campi_obbligatori_mancanti` | `POST` con il solo `codice_dipendente` → 422; i campi in errore sono `cognome` e `nome` |
+| `test_TC_T05_specializzazione_non_valida_limite_noto` | `POST` con specializzazione "magia" e poi `""` → il test verifica l'**eccezione** `IntegrityError` (il `TestClient` rilancia l'errore del `CHECK` invece di restituire il 500 del caso manuale); l'elenco resta vuoto |
+| `test_TC_T06_elenco_tecnici` | Due tecnici creati → `GET /tecnici` 200; i codici, ordinati, sono "T-1" e "T-2" |
+| `test_TC_T07_filtro_attivi_e_non_attivi` | Due tecnici, uno disattivato direttamente nel database di test con la fixture `db` → `?attivo=true` 200 con `["T1"]`, `?attivo=false` 200 con `["T2"]` |
+| `test_TC_T08_filtro_attivo_non_booleano` | `GET /tecnici?attivo=boh` → 422; il campo in errore è `attivo` |
+
+Note: T05 fotografa un limite noto e andrà riscritto quando la specializzazione sarà validata nello schema (422, fase 2c). T07 usa la fixture `db` perché nessuna rotta consente di disattivare un tecnico (limite noto: manca una rotta per farlo).
+
+Gli altri gruppi (guasti, ordini di lavoro) non hanno ancora test automatici: per loro la verifica è solo manuale, con i casi della sezione 2.
 
 ## 4. Note per il tester
 

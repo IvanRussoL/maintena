@@ -518,3 +518,22 @@ Diario di sviluppo: per ogni passo annoto la data, cosa ho deciso, perché e cos
 - Mancano i test degli altri gruppi (tecnici, guasti, ordini di lavoro).
 
 **Prossimo passo:** test automatici dei tecnici (casi `TC-T`).
+
+## 2026-11-21 – Fase 2: test automatici dei tecnici
+
+**Decisione:** trasformo in test automatici gli otto casi `TC-T01..T08` del piano di test, un test per caso con il codice nel nome (`test_TC_T03_codice_dipendente_duplicato`).
+**Motivo:** come per reparti e macchinari, quando farò servizi e repository voglio vedere con un comando se rompo qualcosa. I tecnici hanno anche due casi particolari: un limite noto da fotografare e un filtro che non si può provare solo con le rotte.
+**Cosa ho fatto:**
+- `tests/test_tecnici.py`: la funzione di appoggio `crea_tecnico` (manda la specializzazione solo se la indico, e restituisce il corpo della risposta) e otto test: creazione con e senza specializzazione; codice dipendente doppio (409 e un solo tecnico); campi obbligatori mancanti (422 su `nome` e `cognome`); specializzazione non valida; elenco; filtro `attivo` true/false; filtro `attivo` non booleano (422).
+- Nel test del filtro serve un tecnico non attivo, ma nessuna rotta lo disattiva. Lo preparo direttamente nel database di test con la fixture `db` (`tecnico.attivo = False` e `commit`), con un commento che spiega perché.
+- Per la specializzazione non valida (`"magia"` e `""`) il `TestClient` non restituisce il 500 del piano: l'`IntegrityError` che la rotta rilancia esce dentro il test. Il test controlla quindi l'eccezione con `pytest.raises(IntegrityError)` e poi che l'elenco sia ancora vuoto.
+**Errori che ho fatto:**
+- Confronti scritti senza `assert` (non controllavano niente), `id` usato come nome di variabile, `["T1"] == "T1"` (lista contro stringa, sempre falso), `params` con un nome di parametro che la rotta non ha (viene ignorato e arriva un 200 con tutto l'elenco).
+- Il secondo caso della specializzazione non valida l'avevo copiato dal primo, e il test restava verde anche senza provare metà del piano.
+**Alternative scartate:** aggiungere una rotta per disattivare un tecnico solo per poter scrivere il test (non è un requisito del gestionale); cambiare `conftest.py` per far restituire il 500 al client, con `raise_server_exceptions=False` (non l'ho provato; il caso sparirà in 2c e non voglio toccare la configurazione condivisa per un test destinato a cambiare).
+**Limiti noti:**
+- Il test della specializzazione non valida fotografa il comportamento di oggi (eccezione dal `CHECK` del database) e andrà riscritto quando la specializzazione diventerà un `Literal` nello schema: allora il risultato sarà un 422.
+- Non esiste una rotta per disattivare un tecnico: il caso `attivo=false` si prova solo scrivendo nel database dal test.
+- Mancano i test degli altri gruppi (guasti, ordini di lavoro).
+
+**Prossimo passo:** test automatici dei guasti (casi `TC-G`).
