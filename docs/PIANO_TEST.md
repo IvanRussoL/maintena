@@ -595,7 +595,28 @@ Una funzione di appoggio: `crea_tecnico(client, codice, nome="Luca", cognome="Ro
 
 Note: T05 fotografa un limite noto e andrà riscritto quando la specializzazione sarà validata nello schema (422, fase 2c). T07 usa la fixture `db` perché nessuna rotta consente di disattivare un tecnico (limite noto: manca una rotta per farlo).
 
-Gli altri gruppi (guasti, ordini di lavoro) non hanno ancora test automatici: per loro la verifica è solo manuale, con i casi della sezione 2.
+### `tests/test_guasti.py`
+
+Tre funzioni di appoggio, tutte basate sulle rotte vere: `crea_reparto(client, nome="Stampaggio")` e `crea_macchinario(client, matricola, reparto_id, nome="Pressa")` restituiscono l'`id`; `crea_guasto(client, macchinario_id, priorita="alta")` crea un guasto con `POST /guasti` e restituisce il corpo della risposta (il dizionario intero).
+
+| Test | Scenario |
+|---|---|
+| `test_TC_G01_segnalazione_guasto` | `POST /guasti` con macchinario, descrizione, priorità e `segnalato_da` → 201, `stato` "aperto", `data_segnalazione` valorizzata, `data_chiusura` `None` |
+| `test_TC_G02_macchinario_inesistente` | `POST` con `macchinario_id` 999999 → 404 "Macchinario non trovato" |
+| `test_TC_G03_campi_obbligatori_mancanti` | `POST` senza `priorita` → 422; `loc` è `["body", "priorita"]` |
+| `test_TC_G04_priorita_non_valida` | `POST` con priorità "urgentissima" → il test verifica l'**eccezione** `IntegrityError` (il `TestClient` rilancia l'errore del `CHECK` invece di restituire il 500 del caso manuale); `GET /guasti?macchinario_id=...` resta `[]` |
+| `test_TC_G05_elenco_guasti` | Un guasto creato → `GET /guasti` 200 e l'`id` è nell'elenco |
+| `test_TC_G06_filtro_per_macchinario` | Due macchinari con un guasto ciascuno → `GET /guasti?macchinario_id={A}` 200 con il guasto di A e senza quello di B |
+| `test_TC_G07_filtro_senza_guasti_o_inesistente` | Filtro su un macchinario senza guasti e su 999999 → 200 e `[]` in entrambi i casi; `macchinario_id=abc` → 422 |
+| `test_TC_G08_in_lavorazione` | `PATCH /guasti/{id}` con "in_lavorazione" → 200, `data_chiusura` `None` |
+| `test_TC_G09_risolto_senza_ordini` | `PATCH` con "risolto" su un guasto senza ordini → 200, `data_chiusura` valorizzata |
+| `test_TC_G12_stato_non_valido` | `PATCH` con "boh" → 422 "Stato non valido" e lo stato in elenco resta "aperto"; `PATCH` con `{}` → 422 con `loc` `["body", "stato"]` |
+| `test_TC_G13_guasto_inesistente` | `PATCH /guasti/999999` → 404 "Guasto non trovato" |
+| `test_TC_G14_riapertura_guasto_chiuso` | Guasto portato a "risolto" e poi a "in_lavorazione" → 200 e `data_chiusura` **resta valorizzata** (limite noto) |
+
+Note: **TC-G10 e TC-G11 non sono ancora automatici**: servono un ordine di lavoro collegato al guasto e un helper che lo crea, e saranno scritti insieme ai test degli ordini di lavoro (`tests/test_ordini_lavoro.py`). G04 e G14 fotografano limiti noti e andranno riscritti in fase 2c (priorità con `Literal`, quindi 422) e 2d (transizioni di stato).
+
+Gli ordini di lavoro non hanno ancora test automatici: per loro la verifica è solo manuale, con i casi della sezione 2.
 
 ## 4. Note per il tester
 
@@ -649,7 +670,7 @@ Per ogni caso eseguito, registrare:
 
 In caso di **FAIL** indicare sempre: richiesta esatta, risposta ricevuta (codice e corpo), eventuali errori nei log.
 
-Tabella degli esiti. Le prove manuali sono state eseguite durante lo sviluppo di ciascuna rotta; data e ora e riferimenti ai dati non sono stati registrati. Da compilare per intero a ogni sessione successiva. **Nota:** `TC-R01`..`TC-R08` e `TC-M01`..`TC-M12` sono coperti anche dai test automatici di `tests/test_reparti.py` e `tests/test_macchinari.py` (sezione 3).
+Tabella degli esiti. Le prove manuali sono state eseguite durante lo sviluppo di ciascuna rotta; data e ora e riferimenti ai dati non sono stati registrati. Da compilare per intero a ogni sessione successiva. **Nota:** `TC-R01`..`TC-R08`, `TC-M01`..`TC-M12`, `TC-T01`..`TC-T08` e `TC-G01`..`TC-G09`, `TC-G12`..`TC-G14` sono coperti anche dai test automatici di `tests/test_reparti.py`, `tests/test_macchinari.py`, `tests/test_tecnici.py` e `tests/test_guasti.py` (sezione 3; 12 test dei guasti passati il 25/11/2026). `TC-G10` e `TC-G11` restano solo manuali: saranno automatizzati con i test degli ordini di lavoro.
 
 
 | ID test | Esito | Data e ora | Evidenza | Errori | Riferimento ai dati | Note |

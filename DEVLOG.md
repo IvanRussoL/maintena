@@ -537,3 +537,25 @@ Diario di sviluppo: per ogni passo annoto la data, cosa ho deciso, perché e cos
 - Mancano i test degli altri gruppi (guasti, ordini di lavoro).
 
 **Prossimo passo:** test automatici dei guasti (casi `TC-G`).
+
+## 2026-11-25 – Fase 2: test automatici dei guasti
+
+**Decisione:** trasformo in test automatici i casi `TC-G01..G09` e `TC-G12..G14` del piano di test, un test per caso con il codice nel nome (`test_TC_G06_filtro_per_macchinario`). `TC-G10` e `TC-G11` li rimando ai test degli ordini di lavoro.
+**Motivo:** i guasti sono la risorsa con più regole dopo i macchinari (macchinario che deve esistere, stato che parte da "aperto", `data_chiusura` che si valorizza alla chiusura). Con i test pronti vedo con un comando se rompo qualcosa quando farò servizi e repository. G10 e G11 provano la chiusura bloccata da un ordine aperto: per scriverli serve creare un ordine di lavoro, e conviene farlo quando scrivo `test_ordini_lavoro.py`, con un suo helper.
+**Cosa ho fatto:**
+- `tests/test_guasti.py`: tre funzioni di appoggio (`crea_reparto`, `crea_macchinario`, `crea_guasto`, quest'ultima restituisce il dizionario della risposta) e dodici test: creazione (201, stato "aperto", `data_segnalazione` valorizzata, `data_chiusura` `None`); macchinario inesistente (404); `priorita` mancante (422); priorità non valida; elenco; filtro per macchinario, anche senza guasti, inesistente o non numerico; passaggio in lavorazione; chiusura senza ordini con `data_chiusura` valorizzata; stato non valido e corpo vuoto (422); guasto inesistente (404); riapertura di un guasto chiuso.
+- Nel test della priorità non valida (G04) il `TestClient` non restituisce il 500 del piano: l'`IntegrityError` che la rotta rilancia esce dentro il test, come per la specializzazione dei tecnici. Uso `pytest.raises(IntegrityError)` e poi un `GET` con il filtro, che deve restituire `[]`: nessun guasto è stato creato.
+- In G12 provo due richieste: lo stato "boh" (422 "Stato non valido", che arriva dal `CHECK` del database tradotto dalla rotta, e lo stato in elenco resta "aperto") e il corpo vuoto `{}` (422 di Pydantic, con `loc` `["body", "stato"]`).
+**Errori che ho fatto:**
+- Importato `IntegrityError` da `sqlalchemy.orm` invece che da `sqlalchemy.exc`.
+- Dimenticata la `f` davanti agli indirizzi con `{id}`: la rotta riceve il testo `{guasto['id']}` e risponde 422 sul parametro di percorso.
+- Confronti senza `assert`, `status` al posto di `status_code`, una virgola mancante in un dizionario e un `return` mancante nell'helper.
+- Il filtro dell'elenco con `matricola` al posto di `macchinario_id`: la rotta ignora i parametri che non conosce e restituisce tutto.
+**Alternative scartate:** scrivere G10 e G11 adesso con un ordine creato a mano nel test (duplicherei l'helper che servirà per gli ordini); un solo test per più casi (se fallisce non so quale caso del piano si è rotto).
+**Limiti noti:**
+- G04 fotografa il comportamento di oggi (eccezione dal `CHECK`) e andrà riscritto quando la priorità diventerà un `Literal` nello schema: allora sarà un 422.
+- G14 fotografa l'assenza di controlli sulle transizioni: un guasto riaperto mantiene `data_chiusura`. Il test cambierà quando farò le transizioni di stato.
+- G12 prova lo stato non valido solo attraverso il `CHECK` del database, perché `stato` nello schema è una `str` libera.
+- Mancano `TC-G10`, `TC-G11` e i test degli ordini di lavoro.
+
+**Prossimo passo:** test automatici degli ordini di lavoro (casi `TC-O`), insieme a `TC-G10` e `TC-G11`.
